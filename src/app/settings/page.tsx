@@ -15,6 +15,9 @@ import {
   GripVertical,
   AlertTriangle,
   Loader2,
+  FileText,
+  Paperclip,
+  Calendar,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -38,6 +41,8 @@ import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
 import { RoleDialog } from "@/components/role-dialog";
 import { TaskDialog } from "@/components/task-dialog";
+import { TemplateDialog } from "@/components/template-dialog";
+import { PolicyDialog } from "@/components/policy-dialog";
 import { getRoles, updateRole } from "@/lib/store/roles";
 import { getTasks, addTask, updateTask, deleteTask } from "@/lib/store/tasks";
 import { deleteAllData, deleteAllEmployees } from "@/lib/store";
@@ -47,9 +52,12 @@ import {
   updateVOCTemplate,
   deleteVOCTemplate,
 } from "@/lib/store/voc-assessments";
+import { getDocumentTemplates, addDocumentTemplate, updateDocumentTemplate, deleteDocumentTemplate } from "@/lib/store/document-templates";
+import { getCompanyPolicies, addCompanyPolicy, updateCompanyPolicy, deleteCompanyPolicy } from "@/lib/store/company-policies";
+import { uploadDocumentFile, getDocumentFileUrl, deleteDocumentFile } from "@/lib/store/document-storage";
 import { toast } from "sonner";
 import { cn, generateId } from "@/lib/utils";
-import type { RoleDefinition, Task, VOCAssessmentTemplate } from "@/lib/types";
+import type { RoleDefinition, Task, VOCAssessmentTemplate, DocumentTemplate, CompanyPolicy } from "@/lib/types";
 
 // --- Collapsible Section wrapper ---
 function CollapsibleSection({
@@ -118,15 +126,27 @@ export default function DataHubPage() {
     useState<VOCAssessmentTemplate | null>(null);
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
 
+  // Document templates & policies state
+  const [docTemplates, setDocTemplates] = useState<DocumentTemplate[]>([]);
+  const [policies, setPolicies] = useState<CompanyPolicy[]>([]);
+  const [editingDocTemplate, setEditingDocTemplate] = useState<DocumentTemplate | null>(null);
+  const [docTemplateDialogOpen, setDocTemplateDialogOpen] = useState(false);
+  const [editingPolicy, setEditingPolicy] = useState<CompanyPolicy | null>(null);
+  const [policyDialogOpen, setPolicyDialogOpen] = useState(false);
+
   const loadData = async () => {
-    const [loadedRoles, loadedTasks, loadedTemplates] = await Promise.all([
+    const [loadedRoles, loadedTasks, loadedTemplates, loadedDocTemplates, loadedPolicies] = await Promise.all([
       getRoles(),
       getTasks(),
       getVOCTemplates(),
+      getDocumentTemplates(),
+      getCompanyPolicies(),
     ]);
     setRoles(loadedRoles);
     setTasks(loadedTasks);
     setTemplates(loadedTemplates);
+    setDocTemplates(loadedDocTemplates);
+    setPolicies(loadedPolicies);
   };
 
   useEffect(() => {
@@ -209,6 +229,82 @@ export default function DataHubPage() {
     await deleteVOCTemplate(id);
     toast.success("Template deleted");
     await loadData();
+  };
+
+  // Document template handlers
+  const handleAddDocTemplate = () => { setEditingDocTemplate(null); setDocTemplateDialogOpen(true); };
+  const handleEditDocTemplate = (tpl: DocumentTemplate) => { setEditingDocTemplate(tpl); setDocTemplateDialogOpen(true); };
+  const handleSaveDocTemplate = async (tpl: DocumentTemplate, file?: File) => {
+    let fileUrl = tpl.file_url || "";
+    if (file) {
+      const result = await uploadDocumentFile(file, tpl.id);
+      if (result.path) { fileUrl = result.path; } else { toast.error(result.error || "Failed to upload file"); return; }
+    }
+    const tplWithFile = { ...tpl, file_url: fileUrl, file_name: file?.name || tpl.file_name };
+    if (editingDocTemplate) {
+      const res = await updateDocumentTemplate(tplWithFile);
+      if (!res) { toast.error("Failed to update template"); return; }
+      toast.success("Template updated");
+    } else {
+      const res = await addDocumentTemplate(tplWithFile);
+      if (!res) { toast.error("Failed to add template"); return; }
+      toast.success("Template added");
+    }
+    await loadData();
+    setEditingDocTemplate(null);
+  };
+  const handleDeleteDocTemplate = async (tpl: DocumentTemplate) => {
+    if (!confirm(`Delete "${tpl.name}"? This cannot be undone.`)) return;
+    if (tpl.file_url) await deleteDocumentFile(tpl.file_url);
+    await deleteDocumentTemplate(tpl.id);
+    toast.success("Template deleted");
+    await loadData();
+  };
+  const handleOpenDocTemplateFile = async (tpl: DocumentTemplate) => {
+    if (!tpl.file_url) { toast.error("No file attached"); return; }
+    const url = await getDocumentFileUrl(tpl.file_url);
+    if (url) { window.open(url, "_blank"); } else { toast.error("Could not load file"); }
+  };
+
+  // Policy handlers
+  const handleAddPolicy = () => { setEditingPolicy(null); setPolicyDialogOpen(true); };
+  const handleEditPolicy = (pol: CompanyPolicy) => { setEditingPolicy(pol); setPolicyDialogOpen(true); };
+  const handleSavePolicy = async (pol: CompanyPolicy, file?: File) => {
+    let fileUrl = pol.file_url || "";
+    if (file) {
+      const result = await uploadDocumentFile(file, pol.id);
+      if (result.path) { fileUrl = result.path; } else { toast.error(result.error || "Failed to upload file"); return; }
+    }
+    const polWithFile = { ...pol, file_url: fileUrl, file_name: file?.name || pol.file_name };
+    if (editingPolicy) {
+      const res = await updateCompanyPolicy(polWithFile);
+      if (!res) { toast.error("Failed to update policy"); return; }
+      toast.success("Policy updated");
+    } else {
+      const res = await addCompanyPolicy(polWithFile);
+      if (!res) { toast.error("Failed to add policy"); return; }
+      toast.success("Policy added");
+    }
+    await loadData();
+    setEditingPolicy(null);
+  };
+  const handleDeletePolicy = async (pol: CompanyPolicy) => {
+    if (!confirm(`Delete "${pol.name}"? This cannot be undone.`)) return;
+    if (pol.file_url) await deleteDocumentFile(pol.file_url);
+    await deleteCompanyPolicy(pol.id);
+    toast.success("Policy deleted");
+    await loadData();
+  };
+  const handleOpenPolicyFile = async (pol: CompanyPolicy) => {
+    if (!pol.file_url) { toast.error("No file attached"); return; }
+    const url = await getDocumentFileUrl(pol.file_url);
+    if (url) { window.open(url, "_blank"); } else { toast.error("Could not load file"); }
+  };
+
+  const fmtDate = (dateStr: string) => {
+    if (!dateStr) return "\u2014";
+    try { return new Date(dateStr).toLocaleDateString("en-AU", { day: "2-digit", month: "short", year: "numeric" }); }
+    catch { return dateStr; }
   };
 
   const getTaskName = (id: string) =>
@@ -554,6 +650,144 @@ export default function DataHubPage() {
         </div>
       </CollapsibleSection>
 
+      {/* Document Templates */}
+      <CollapsibleSection
+        icon={<FileText className="w-3.5 h-3.5" />}
+        iconColor="text-blue-400"
+        title="Document Templates"
+        subtitle="Master fillable forms (VOC, leave, warning, etc.)"
+        defaultOpen={false}
+        headerRight={
+          <Button size="sm" onClick={handleAddDocTemplate} className="gap-1.5">
+            <Plus className="w-3.5 h-3.5" />
+            Add Template
+          </Button>
+        }
+      >
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-[10px] uppercase tracking-wider">Name</TableHead>
+                <TableHead className="text-[10px] uppercase tracking-wider">Category</TableHead>
+                <TableHead className="text-[10px] uppercase tracking-wider">File</TableHead>
+                <TableHead className="text-[10px] uppercase tracking-wider w-24">Status</TableHead>
+                <TableHead className="text-[10px] uppercase tracking-wider text-right w-20">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {docTemplates.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">
+                    <p className="text-sm">No document templates yet.</p>
+                    <p className="text-xs mt-1">Click &ldquo;Add Template&rdquo; to upload a master form.</p>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                docTemplates.map((tpl) => (
+                  <TableRow key={tpl.id}>
+                    <TableCell>
+                      <p className="text-sm font-medium">{tpl.name}</p>
+                      {tpl.description && <p className="text-[11px] text-muted-foreground mt-0.5 max-w-[300px] truncate">{tpl.description}</p>}
+                    </TableCell>
+                    <TableCell>
+                      <span className="inline-flex px-2 py-0.5 bg-blue-500/8 text-blue-400 text-[11px] rounded border border-blue-500/15">{tpl.category}</span>
+                    </TableCell>
+                    <TableCell>
+                      {tpl.file_name ? (
+                        <button type="button" onClick={() => handleOpenDocTemplateFile(tpl)} className="inline-flex items-center gap-1 text-xs text-emerald-500 hover:text-emerald-400 hover:underline transition-colors" title={tpl.file_name}>
+                          <Paperclip className="w-3 h-3 shrink-0" />
+                          <span className="truncate max-w-[150px]">{tpl.file_name}</span>
+                        </button>
+                      ) : <span className="text-xs text-muted-foreground/40">&mdash;</span>}
+                    </TableCell>
+                    <TableCell><StatusBadge status={tpl.active ? "Active" : "Inactive"} /></TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleEditDocTemplate(tpl)}><Pencil className="w-3.5 h-3.5" /></Button>
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-400 hover:text-red-500 hover:bg-red-500/10" onClick={() => handleDeleteDocTemplate(tpl)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </CollapsibleSection>
+
+      {/* Company Policies */}
+      <CollapsibleSection
+        icon={<Shield className="w-3.5 h-3.5" />}
+        iconColor="text-emerald-400"
+        title="Company Policies"
+        subtitle="Safety, HR, and workplace policies"
+        defaultOpen={false}
+        headerRight={
+          <Button size="sm" onClick={handleAddPolicy} className="gap-1.5">
+            <Plus className="w-3.5 h-3.5" />
+            Add Policy
+          </Button>
+        }
+      >
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-[10px] uppercase tracking-wider">Name</TableHead>
+                <TableHead className="text-[10px] uppercase tracking-wider">Category</TableHead>
+                <TableHead className="text-[10px] uppercase tracking-wider">Version</TableHead>
+                <TableHead className="text-[10px] uppercase tracking-wider">Effective</TableHead>
+                <TableHead className="text-[10px] uppercase tracking-wider">Review</TableHead>
+                <TableHead className="text-[10px] uppercase tracking-wider">File</TableHead>
+                <TableHead className="text-[10px] uppercase tracking-wider w-24">Status</TableHead>
+                <TableHead className="text-[10px] uppercase tracking-wider text-right w-20">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {policies.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                    <p className="text-sm">No company policies yet.</p>
+                    <p className="text-xs mt-1">Click &ldquo;Add Policy&rdquo; to create one.</p>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                policies.map((pol) => (
+                  <TableRow key={pol.id}>
+                    <TableCell>
+                      <p className="text-sm font-medium">{pol.name}</p>
+                      {pol.description && <p className="text-[11px] text-muted-foreground mt-0.5 max-w-[250px] truncate">{pol.description}</p>}
+                    </TableCell>
+                    <TableCell>
+                      <span className="inline-flex px-2 py-0.5 bg-emerald-500/8 text-emerald-400 text-[11px] rounded border border-emerald-500/15">{pol.category}</span>
+                    </TableCell>
+                    <TableCell><span className="text-sm text-muted-foreground">v{pol.version}</span></TableCell>
+                    <TableCell><span className="text-xs text-muted-foreground flex items-center gap-1"><Calendar className="w-3 h-3" />{fmtDate(pol.effective_date)}</span></TableCell>
+                    <TableCell><span className="text-xs text-muted-foreground flex items-center gap-1"><Calendar className="w-3 h-3" />{fmtDate(pol.review_date)}</span></TableCell>
+                    <TableCell>
+                      {pol.file_name ? (
+                        <button type="button" onClick={() => handleOpenPolicyFile(pol)} className="inline-flex items-center gap-1 text-xs text-emerald-500 hover:text-emerald-400 hover:underline transition-colors" title={pol.file_name}>
+                          <Paperclip className="w-3 h-3 shrink-0" />
+                          <span className="truncate max-w-[120px]">{pol.file_name}</span>
+                        </button>
+                      ) : <span className="text-xs text-muted-foreground/40">&mdash;</span>}
+                    </TableCell>
+                    <TableCell><StatusBadge status={pol.status === "Current" ? "Active" : pol.status === "Under Review" ? "Pending" : "Inactive"} /></TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={() => handleEditPolicy(pol)}><Pencil className="w-3.5 h-3.5" /></Button>
+                        <Button variant="ghost" size="sm" className="h-7 w-7 p-0 text-red-400 hover:text-red-500 hover:bg-red-500/10" onClick={() => handleDeletePolicy(pol)}><Trash2 className="w-3.5 h-3.5" /></Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+      </CollapsibleSection>
+
       {/* Data Storage */}
       <CollapsibleSection
         icon={<Database className="w-3.5 h-3.5" />}
@@ -610,6 +844,20 @@ export default function DataHubPage() {
         tasks={activeTasks}
         existingTemplates={templates}
         onSave={handleSaveTemplate}
+      />
+
+      <TemplateDialog
+        open={docTemplateDialogOpen}
+        onOpenChange={setDocTemplateDialogOpen}
+        template={editingDocTemplate}
+        onSave={handleSaveDocTemplate}
+      />
+
+      <PolicyDialog
+        open={policyDialogOpen}
+        onOpenChange={setPolicyDialogOpen}
+        policy={editingPolicy}
+        onSave={handleSavePolicy}
       />
     </div>
   );

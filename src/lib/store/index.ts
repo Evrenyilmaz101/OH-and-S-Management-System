@@ -39,7 +39,7 @@ export { getEmployeeCompliance, getAllEmployeeCompliance, computeCompliance } fr
 export type { ComplianceStatus } from './compliance-engine';
 
 // Data management
-export { deleteAllData } from './core';
+export { deleteAllData, deleteAllEmployees } from './core';
 
 // Backward-compatible aliases
 export { getVOCByEmployee as getVOCRecordsByEmployee } from './voc';

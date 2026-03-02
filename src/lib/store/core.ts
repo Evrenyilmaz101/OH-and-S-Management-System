@@ -156,3 +156,31 @@ export async function deleteAllData(): Promise<{ success: boolean; errors: strin
 
   return { success: errors.length === 0, errors };
 }
+
+// Delete all employees and their related records (child tables with ON DELETE CASCADE)
+const EMPLOYEE_RELATED_TABLES = [
+  'sop_acknowledgments',
+  'induction_records',
+  'onboarding_records',
+  'voc_assessments',
+  'voc_records',
+  'certifications',
+  'ppe_records',
+  'first_aid_entries',
+  'employees',
+];
+
+export async function deleteAllEmployees(): Promise<{ success: boolean; errors: string[] }> {
+  const supabase = getSupabase();
+  const errors: string[] = [];
+
+  for (const table of EMPLOYEE_RELATED_TABLES) {
+    const { error } = await supabase.from(table).delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    if (error) {
+      console.error(`[store] Error clearing ${table}:`, error.message);
+      errors.push(`${table}: ${error.message}`);
+    }
+  }
+
+  return { success: errors.length === 0, errors };
+}

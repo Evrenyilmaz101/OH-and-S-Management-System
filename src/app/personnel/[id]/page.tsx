@@ -137,13 +137,13 @@ export default function EmployeeFilePage() {
 
   const handlePhotoUpload = async (file: File) => {
     if (!employee) return;
-    const path = await uploadEmployeePhoto(file, employeeId);
-    if (path) {
-      await updateEmployee({ ...employee, photo_url: path });
+    const result = await uploadEmployeePhoto(file, employeeId);
+    if (result.path) {
+      await updateEmployee({ ...employee, photo_url: result.path });
       toast.success("Photo updated");
       await loadData();
     } else {
-      toast.error("Failed to upload photo");
+      toast.error(result.error || "Failed to upload photo");
     }
   };
 
@@ -156,11 +156,11 @@ export default function EmployeeFilePage() {
   const handleDocSave = async (doc: Document, file?: File) => {
     let fileUrl = doc.file_url || "";
     if (file) {
-      const path = await uploadDocumentFile(file, doc.id);
-      if (path) {
-        fileUrl = path;
+      const result = await uploadDocumentFile(file, doc.id);
+      if (result.path) {
+        fileUrl = result.path;
       } else {
-        toast.error("Failed to upload file");
+        toast.error(result.error || "Failed to upload file");
         return;
       }
     }
@@ -192,11 +192,11 @@ export default function EmployeeFilePage() {
   const handleAttachmentSave = async (doc: Document, file?: File) => {
     let fileUrl = doc.file_url || "";
     if (file) {
-      const path = await uploadDocumentFile(file, doc.id);
-      if (path) {
-        fileUrl = path;
+      const result = await uploadDocumentFile(file, doc.id);
+      if (result.path) {
+        fileUrl = result.path;
       } else {
-        toast.error("Failed to upload file");
+        toast.error(result.error || "Failed to upload file");
         return;
       }
     }

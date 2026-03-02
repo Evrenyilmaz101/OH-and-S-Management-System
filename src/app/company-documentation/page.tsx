@@ -52,11 +52,11 @@ export default function CompanyDocumentationPage() {
   const handleSaveTemplate = async (tpl: DocumentTemplate, file?: File) => {
     let fileUrl = tpl.file_url || "";
     if (file) {
-      const path = await uploadDocumentFile(file, tpl.id);
-      if (path) {
-        fileUrl = path;
+      const result = await uploadDocumentFile(file, tpl.id);
+      if (result.path) {
+        fileUrl = result.path;
       } else {
-        toast.error("Failed to upload file");
+        toast.error(result.error || "Failed to upload file");
         return;
       }
     }
@@ -112,11 +112,11 @@ export default function CompanyDocumentationPage() {
   const handleSavePolicy = async (pol: CompanyPolicy, file?: File) => {
     let fileUrl = pol.file_url || "";
     if (file) {
-      const path = await uploadDocumentFile(file, pol.id);
-      if (path) {
-        fileUrl = path;
+      const result = await uploadDocumentFile(file, pol.id);
+      if (result.path) {
+        fileUrl = result.path;
       } else {
-        toast.error("Failed to upload file");
+        toast.error(result.error || "Failed to upload file");
         return;
       }
     }

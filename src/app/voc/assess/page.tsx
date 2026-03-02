@@ -192,15 +192,15 @@ export default function VOCAssessPage() {
       );
 
       const documentId = generateId();
-      const filePath = await uploadDocumentFile(pdfFile, documentId);
+      const uploadResult = await uploadDocumentFile(pdfFile, documentId);
 
-      if (!filePath) {
-        console.error("[VOC] PDF upload failed — no file path returned");
+      if (!uploadResult.path) {
+        console.error("[VOC] PDF upload failed:", uploadResult.error);
       }
 
       // 4. Create document record
       let docId = "";
-      if (filePath) {
+      if (uploadResult.path) {
         const docRecord = await addDocument({
           id: documentId,
           title: `VOC Assessment - ${selectedTask.name} - ${employeeName}`,
@@ -210,7 +210,7 @@ export default function VOCAssessPage() {
           description: `Digital VOC assessment for ${selectedTask.name}`,
           content: "",
           file_name: pdfFile.name,
-          file_url: filePath,
+          file_url: uploadResult.path,
           upload_date: assessedDate,
           review_date: "",
           status: "Current",

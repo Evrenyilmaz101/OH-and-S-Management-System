@@ -2,13 +2,18 @@ import { createClient } from '@/lib/supabase/client';
 
 const BUCKET = 'documents';
 
+export interface UploadResult {
+  path: string | null;
+  error?: string;
+}
+
 /**
  * Upload a file to Supabase Storage under documents/{documentId}/{filename}
  */
 export async function uploadDocumentFile(
   file: File,
   documentId: string
-): Promise<string | null> {
+): Promise<UploadResult> {
   const supabase = createClient();
   const filePath = `${documentId}/${file.name}`;
 
@@ -21,10 +26,10 @@ export async function uploadDocumentFile(
 
   if (error) {
     console.error('[storage] Upload error:', error.message);
-    return null;
+    return { path: null, error: error.message };
   }
 
-  return data.path;
+  return { path: data.path };
 }
 
 /**
@@ -51,7 +56,7 @@ export async function getDocumentFileUrl(filePath: string): Promise<string | nul
 export async function uploadEmployeePhoto(
   file: File,
   employeeId: string
-): Promise<string | null> {
+): Promise<UploadResult> {
   const supabase = createClient();
   const ext = file.name.split('.').pop() || 'jpg';
   const filePath = `employee-photos/${employeeId}/photo.${ext}`;
@@ -65,10 +70,10 @@ export async function uploadEmployeePhoto(
 
   if (error) {
     console.error('[storage] Photo upload error:', error.message);
-    return null;
+    return { path: null, error: error.message };
   }
 
-  return data.path;
+  return { path: data.path };
 }
 
 /**

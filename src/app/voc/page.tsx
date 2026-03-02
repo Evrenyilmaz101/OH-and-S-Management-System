@@ -88,8 +88,8 @@ export default function VOCPage() {
     // Upload scanned file and create document record if provided
     if (file) {
       const docId = generateId();
-      const path = await uploadDocumentFile(file, docId);
-      if (path) {
+      const result = await uploadDocumentFile(file, docId);
+      if (result.path) {
         const emp = employees.find((e) => e.id === form.employee_id);
         const task = tasks.find((t) => t.id === form.task_id);
         await addDocument({
@@ -98,14 +98,14 @@ export default function VOCPage() {
           description: `Paper VOC assessment recorded ${form.assessed_date}. Assessed by ${form.assessed_by}.`,
           category: "VOC Verification",
           file_name: file.name,
-          file_url: path,
+          file_url: result.path,
           related_entity_id: form.employee_id,
           related_entity_type: "employee",
           tags: [`emp:${form.employee_id}`],
         });
         toast.success("Assessment saved with scanned document");
       } else {
-        toast.error("Assessment saved but file upload failed");
+        toast.error(`Assessment saved but file upload failed: ${result.error || "Unknown error"}`);
       }
     } else {
       toast.success("Assessment saved");

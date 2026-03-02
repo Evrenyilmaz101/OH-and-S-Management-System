@@ -125,11 +125,11 @@ export default function DocumentsPage() {
     let fileUrl = doc.file_url || "";
 
     if (file) {
-      const path = await uploadDocumentFile(file, doc.id);
-      if (path) {
-        fileUrl = path;
+      const result = await uploadDocumentFile(file, doc.id);
+      if (result.path) {
+        fileUrl = result.path;
       } else {
-        toast.error("Failed to upload file");
+        toast.error(result.error || "Failed to upload file");
         return;
       }
     }

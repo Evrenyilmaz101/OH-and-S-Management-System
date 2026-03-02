@@ -111,3 +111,48 @@ export async function deleteRow(table: string, id: string): Promise<boolean> {
   }
   return true;
 }
+
+// Delete all rows from all data tables (ordered to respect foreign keys)
+const ALL_TABLES_ORDERED = [
+  'sop_acknowledgments',
+  'induction_records',
+  'onboarding_records',
+  'voc_assessments',
+  'voc_records',
+  'certifications',
+  'ppe_records',
+  'first_aid_entries',
+  'corrective_actions',
+  'incidents',
+  'inspections',
+  'toolbox_talks',
+  'documents',
+  'swms',
+  'risk_assessments',
+  'sops',
+  'hazardous_substances',
+  'plant_equipment',
+  'emergency_info',
+  'employees',
+  'induction_templates',
+  'voc_templates',
+  'document_templates',
+  'company_policies',
+  'tasks',
+  'role_definitions',
+];
+
+export async function deleteAllData(): Promise<{ success: boolean; errors: string[] }> {
+  const supabase = getSupabase();
+  const errors: string[] = [];
+
+  for (const table of ALL_TABLES_ORDERED) {
+    const { error } = await supabase.from(table).delete().neq('id', '00000000-0000-0000-0000-000000000000');
+    if (error) {
+      console.error(`[store] Error clearing ${table}:`, error.message);
+      errors.push(`${table}: ${error.message}`);
+    }
+  }
+
+  return { success: errors.length === 0, errors };
+}

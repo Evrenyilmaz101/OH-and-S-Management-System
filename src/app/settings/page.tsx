@@ -13,6 +13,8 @@ import {
   ChevronDown,
   ClipboardCheck,
   GripVertical,
+  AlertTriangle,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -38,6 +40,7 @@ import { RoleDialog } from "@/components/role-dialog";
 import { TaskDialog } from "@/components/task-dialog";
 import { getRoles, updateRole } from "@/lib/store/roles";
 import { getTasks, addTask, updateTask, deleteTask } from "@/lib/store/tasks";
+import { deleteAllData } from "@/lib/store";
 import {
   getVOCTemplates,
   addVOCTemplate,
@@ -574,6 +577,16 @@ export default function DataHubPage() {
         </div>
       </CollapsibleSection>
 
+      {/* Danger Zone */}
+      <CollapsibleSection
+        icon={<AlertTriangle className="w-3.5 h-3.5" />}
+        iconColor="text-red-500"
+        title="Danger Zone"
+        defaultOpen={false}
+      >
+        <DeleteAllDataSection onDeleted={loadData} />
+      </CollapsibleSection>
+
       {/* Dialogs */}
       <RoleDialog
         open={roleDialogOpen}
@@ -599,6 +612,110 @@ export default function DataHubPage() {
         onSave={handleSaveTemplate}
       />
     </div>
+  );
+}
+
+// === Delete All Data Section ===
+function DeleteAllDataSection({ onDeleted }: { onDeleted: () => void }) {
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmText, setConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    if (confirmText !== "DELETE ALL") return;
+    setDeleting(true);
+    const { success, errors } = await deleteAllData();
+    setDeleting(false);
+    setConfirmOpen(false);
+    setConfirmText("");
+    if (success) {
+      toast.success("All data has been deleted");
+      onDeleted();
+    } else {
+      toast.error(`Deleted with ${errors.length} error(s) — check console`);
+      onDeleted();
+    }
+  };
+
+  return (
+    <>
+      <div className="space-y-4">
+        <div className="p-4 rounded-lg border border-red-500/20 bg-red-500/5">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium text-red-400">
+                Delete all data
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Permanently remove all employees, VOC records, certifications,
+                documents, incidents, and all other data from the system. This
+                action cannot be undone.
+              </p>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 border-red-500/30 text-red-400 hover:bg-red-500/10 hover:text-red-400"
+              onClick={() => setConfirmOpen(true)}
+            >
+              <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+              Delete All Data
+            </Button>
+          </div>
+        </div>
+      </div>
+
+      <Dialog open={confirmOpen} onOpenChange={(open) => { setConfirmOpen(open); if (!open) setConfirmText(""); }}>
+        <DialogContent className="sm:max-w-[440px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-red-400">
+              <AlertTriangle className="w-5 h-5" />
+              Delete All Data
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 mt-2">
+            <div className="p-3 rounded bg-red-500/5 border border-red-500/15">
+              <p className="text-sm text-red-400/90">
+                This will permanently delete all records from every table in the
+                system including employees, VOC records, certifications,
+                inductions, documents, incidents, and more.
+              </p>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Type <span className="font-mono font-bold text-foreground">DELETE ALL</span> to confirm:
+            </p>
+            <Input
+              value={confirmText}
+              onChange={(e) => setConfirmText(e.target.value)}
+              placeholder="Type DELETE ALL"
+              className="font-mono"
+            />
+            <div className="flex justify-end gap-3">
+              <Button
+                variant="outline"
+                onClick={() => { setConfirmOpen(false); setConfirmText(""); }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                disabled={confirmText !== "DELETE ALL" || deleting}
+                onClick={handleDelete}
+              >
+                {deleting ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                    Deleting...
+                  </>
+                ) : (
+                  "Delete Everything"
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
 

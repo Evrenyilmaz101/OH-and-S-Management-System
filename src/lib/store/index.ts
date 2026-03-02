@@ -38,6 +38,9 @@ export { getCompanyPolicies, getCompanyPolicy, addCompanyPolicy, updateCompanyPo
 export { getEmployeeCompliance, getAllEmployeeCompliance, computeCompliance } from './compliance-engine';
 export type { ComplianceStatus } from './compliance-engine';
 
+// Data management
+export { deleteAllData } from './core';
+
 // Backward-compatible aliases
 export { getVOCByEmployee as getVOCRecordsByEmployee } from './voc';
 export { getVOCByTask as getVOCRecordsByTask } from './voc';

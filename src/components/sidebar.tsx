@@ -12,6 +12,8 @@ import {
   HardHat,
   ChevronDown,
   Library,
+  ClipboardCheck,
+  FileText,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -38,6 +40,13 @@ const navGroups: NavGroup[] = [
     label: "PERSONNEL",
     items: [
       { href: "/personnel", label: "Employee Files", icon: Users },
+    ],
+  },
+  {
+    label: "COMPETENCY",
+    items: [
+      { href: "/voc", label: "VOC Records", icon: ClipboardCheck },
+      { href: "/voc/templates", label: "VOC Templates", icon: FileText },
     ],
   },
   {

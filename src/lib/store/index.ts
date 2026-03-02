@@ -25,6 +25,12 @@ export {
 // Document templates
 export { getDocumentTemplates, getDocumentTemplate, addDocumentTemplate, updateDocumentTemplate, deleteDocumentTemplate } from './document-templates';
 
+// VOC assessment templates & assessments
+export {
+  getVOCTemplates, getVOCTemplate, getVOCTemplateByTask, addVOCTemplate, updateVOCTemplate, deleteVOCTemplate,
+  getVOCAssessments, getVOCAssessment, getVOCAssessmentByRecord, addVOCAssessment, updateVOCAssessment,
+} from './voc-assessments';
+
 // Company policies
 export { getCompanyPolicies, getCompanyPolicy, addCompanyPolicy, updateCompanyPolicy, deleteCompanyPolicy } from './company-policies';
 

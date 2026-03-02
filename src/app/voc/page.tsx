@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { Plus, Search } from "lucide-react";
+import { Plus, Search, ClipboardCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -94,17 +94,26 @@ export default function VOCPage() {
         title="VOC Records"
         description="Verification of Competency assessments — auto 2-year expiry"
       >
-        <Button
-          size="sm"
-          className="gap-2"
-          onClick={() => {
-            setEditing(null);
-            setDialogOpen(true);
-          }}
-        >
-          <Plus className="w-4 h-4" />
-          New Assessment
-        </Button>
+        <div className="flex gap-2">
+          <Link href="/voc/assess">
+            <Button size="sm" className="gap-2">
+              <ClipboardCheck className="w-4 h-4" />
+              Digital Assessment
+            </Button>
+          </Link>
+          <Button
+            size="sm"
+            variant="outline"
+            className="gap-2"
+            onClick={() => {
+              setEditing(null);
+              setDialogOpen(true);
+            }}
+          >
+            <Plus className="w-4 h-4" />
+            Quick Entry
+          </Button>
+        </div>
       </PageHeader>
 
       <Card className="mb-6 border-border/60">

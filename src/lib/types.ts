@@ -412,6 +412,41 @@ export interface DocumentTemplate {
   sort_order: number;
 }
 
+// === VOC ASSESSMENT TEMPLATES & ASSESSMENTS ===
+
+export interface VOCAssessmentTemplate {
+  id: string;
+  task_id: string;
+  name: string;
+  sop_reference: string;
+  knowledge_questions: { question: string }[];
+  practical_tasks: { task: string; criteria: string }[];
+  active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface VOCAssessment {
+  id: string;
+  voc_record_id: string;
+  employee_id: string;
+  task_id: string;
+  template_id: string;
+  assessor_name: string;
+  employee_position: string;
+  assessment_date: string;
+  sop_acknowledged: boolean;
+  knowledge_responses: { question: string; response: string; competent: boolean }[];
+  practical_responses: { task: string; criteria: string; competent: boolean }[];
+  overall_outcome: string;
+  assessor_comments: string;
+  assessor_signature: string;
+  employee_signature: string;
+  document_id: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 // === COMPANY POLICIES ===
 
 export interface CompanyPolicy {

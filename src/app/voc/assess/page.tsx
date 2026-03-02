@@ -22,6 +22,7 @@ import {
 import { uploadDocumentFile } from "@/lib/store/document-storage";
 import { generateVOCPdf } from "@/lib/generate-voc-pdf";
 import { generateId } from "@/lib/utils";
+import { toast } from "sonner";
 import type { Employee, Task, VOCAssessmentTemplate } from "@/lib/types";
 
 export default function VOCAssessPage() {
@@ -181,9 +182,12 @@ export default function VOCAssessPage() {
       });
 
       // 3. Upload PDF to Supabase Storage
+      // Sanitize filename: remove special chars, replace spaces with hyphens
+      const safeName = (s: string) => s.replace(/[^a-zA-Z0-9-_]/g, "-").replace(/-+/g, "-");
+      const pdfFileName = `VOC-${safeName(selectedTask.name)}-${safeName(employeeName)}-${assessedDate}.pdf`;
       const pdfFile = new File(
         [pdfBlob],
-        `VOC-${selectedTask.name}-${employeeName}-${assessedDate}.pdf`,
+        pdfFileName,
         { type: "application/pdf" }
       );
 
@@ -243,10 +247,15 @@ export default function VOCAssessPage() {
         document_id: docId,
       });
 
+      if (docId) {
+        toast.success("Assessment saved with PDF document");
+      } else {
+        toast.success("Assessment saved (PDF generation skipped)");
+      }
       router.push("/voc");
     } catch (err) {
       console.error("Assessment submission failed:", err);
-      alert("Failed to submit assessment. Please try again.");
+      toast.error("Failed to submit assessment. Please try again.");
     } finally {
       setSubmitting(false);
     }

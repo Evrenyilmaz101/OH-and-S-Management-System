@@ -17,14 +17,29 @@ export async function getDocumentsByEntity(entityId: string, entityType: string)
 
 // Get ALL documents related to an employee — both directly linked and tagged via attachments
 export async function getDocumentsForEmployee(employeeId: string): Promise<Document[]> {
-  const tag = `emp:${employeeId}`;
-  const { data, error } = await getSupabase()
+  // Query 1: Documents directly linked to this employee
+  const { data: directDocs, error: err1 } = await getSupabase()
     .from(TABLE)
     .select('*')
-    .or(`and(related_entity_id.eq.${employeeId},related_entity_type.eq.employee),tags.cs.{"${tag}"}`);
-  if (error) {
-    console.error(`[store] Error fetching docs for employee:`, error.message);
-    return [];
-  }
-  return (data || []) as Document[];
+    .eq('related_entity_id', employeeId)
+    .eq('related_entity_type', 'employee');
+
+  // Query 2: Documents tagged with this employee (e.g. VOC assessments linked via tags)
+  const tag = `emp:${employeeId}`;
+  const { data: taggedDocs, error: err2 } = await getSupabase()
+    .from(TABLE)
+    .select('*')
+    .contains('tags', [tag]);
+
+  if (err1) console.error(`[store] Error fetching direct docs:`, err1.message);
+  if (err2) console.error(`[store] Error fetching tagged docs:`, err2.message);
+
+  // Merge and deduplicate
+  const allDocs = [...(directDocs || []), ...(taggedDocs || [])];
+  const seen = new Set<string>();
+  return allDocs.filter((d) => {
+    if (seen.has(d.id)) return false;
+    seen.add(d.id);
+    return true;
+  }) as Document[];
 }

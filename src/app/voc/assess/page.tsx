@@ -190,6 +190,10 @@ export default function VOCAssessPage() {
       const documentId = generateId();
       const filePath = await uploadDocumentFile(pdfFile, documentId);
 
+      if (!filePath) {
+        console.error("[VOC] PDF upload failed — no file path returned");
+      }
+
       // 4. Create document record
       let docId = "";
       if (filePath) {
@@ -212,7 +216,11 @@ export default function VOCAssessPage() {
           created_by: "",
           notes: "",
         });
-        if (docRecord) docId = docRecord.id;
+        if (docRecord) {
+          docId = docRecord.id;
+        } else {
+          console.error("[VOC] Document record insert failed");
+        }
       }
 
       // 5. Save assessment record

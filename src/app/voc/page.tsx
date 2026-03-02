@@ -1,19 +1,18 @@
 "use client";
 
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, ClipboardCheck, FileDown, Pencil } from "lucide-react";
+import {
+  ClipboardCheck,
+  Upload,
+  FileText,
+  Users,
+  ArrowRight,
+  Clock,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import {
   Dialog,
   DialogContent,
@@ -28,265 +27,266 @@ import {
   getEmployees,
   getTasks,
   addVOCRecord,
-  updateVOCRecord,
-  getDocuments,
+  getVOCTemplates,
 } from "@/lib/store/index";
-import { getDocumentFileUrl } from "@/lib/store/document-storage";
-import { formatDate, getExpiryStatus, generateId } from "@/lib/utils";
-import type { VOCRecord, Employee, Task, VOCStatus, Document } from "@/lib/types";
+import { formatDate, generateId } from "@/lib/utils";
+import type { Employee, Task, VOCStatus, VOCAssessmentTemplate } from "@/lib/types";
 
 export default function VOCPage() {
-  const [vocRecords, setVocRecords] = useState<VOCRecord[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [documents, setDocuments] = useState<Document[]>([]);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<VOCStatus | "All">("All");
+  const [templates, setTemplates] = useState<VOCAssessmentTemplate[]>([]);
+  const [recentAssessments, setRecentAssessments] = useState<
+    { employeeName: string; taskName: string; status: string; date: string; employeeId: string }[]
+  >([]);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editing, setEditing] = useState<VOCRecord | null>(null);
-
-  const loadData = async () => {
-    const [vocRecords, employees, tasks, docs] = await Promise.all([
-      getVOCRecords(),
-      getEmployees(),
-      getTasks(),
-      getDocuments(),
-    ]);
-    setVocRecords(vocRecords);
-    setEmployees(employees);
-    setTasks(tasks);
-    // Filter to only VOC Verification documents
-    setDocuments(docs.filter((d) => d.category === "VOC Verification"));
-  };
+  const [stats, setStats] = useState({ total: 0, competent: 0, expiringSoon: 0 });
 
   useEffect(() => {
-    loadData();
+    (async () => {
+      const [vocRecords, emps, tsks, tmpls] = await Promise.all([
+        getVOCRecords(),
+        getEmployees(),
+        getTasks(),
+        getVOCTemplates(),
+      ]);
+      setEmployees(emps.filter((e) => e.status === "Active"));
+      setTasks(tsks.filter((t) => t.active));
+      setTemplates(tmpls.filter((t) => t.active));
+
+      // Stats
+      const now = new Date();
+      const soon = new Date();
+      soon.setDate(soon.getDate() + 30);
+      const competentCount = vocRecords.filter((v) => v.status === "Competent").length;
+      const expiringCount = vocRecords.filter((v) => {
+        const exp = new Date(v.expiry_date);
+        return v.status === "Competent" && exp <= soon && exp >= now;
+      }).length;
+      setStats({ total: vocRecords.length, competent: competentCount, expiringSoon: expiringCount });
+
+      // Recent 5
+      const sorted = [...vocRecords].sort(
+        (a, b) => new Date(b.assessed_date).getTime() - new Date(a.assessed_date).getTime()
+      );
+      setRecentAssessments(
+        sorted.slice(0, 5).map((v) => {
+          const emp = emps.find((e) => e.id === v.employee_id);
+          const task = tsks.find((t) => t.id === v.task_id);
+          return {
+            employeeName: emp ? `${emp.first_name} ${emp.last_name}` : "Unknown",
+            taskName: task?.name || "Unknown",
+            status: v.status,
+            date: v.assessed_date,
+            employeeId: v.employee_id,
+          };
+        })
+      );
+    })();
   }, []);
 
-  const getEmployeeName = (id: string) => {
-    const emp = employees.find((e) => e.id === id);
-    return emp ? `${emp.first_name} ${emp.last_name}` : "Unknown";
-  };
+  const handlePaperSave = async (form: {
+    employee_id: string;
+    task_id: string;
+    status: VOCStatus;
+    assessed_date: string;
+    assessed_by: string;
+    notes: string;
+  }) => {
+    const assessedDate = new Date(form.assessed_date);
+    const expiryDate = new Date(assessedDate);
+    expiryDate.setFullYear(expiryDate.getFullYear() + 2);
 
-  const getTaskName = (id: string) => {
-    return tasks.find((t) => t.id === id)?.name || "Unknown";
-  };
-
-  // Find the VOC Verification document for a given employee+task
-  const getVocDoc = (employeeId: string, taskId: string): Document | undefined => {
-    return documents.find(
-      (d) =>
-        d.related_entity_id === taskId &&
-        d.related_entity_type === "voc_item" &&
-        d.tags?.includes(`emp:${employeeId}`)
-    );
-  };
-
-  const handleViewPdf = async (doc: Document) => {
-    if (!doc.file_url) return;
-    const url = await getDocumentFileUrl(doc.file_url);
-    if (url) {
-      window.open(url, "_blank");
-    }
-  };
-
-  const filtered = useMemo(() => {
-    return vocRecords.filter((v) => {
-      const employeeName = getEmployeeName(v.employee_id).toLowerCase();
-      const taskName = getTaskName(v.task_id).toLowerCase();
-      const matchesSearch =
-        search === "" ||
-        employeeName.includes(search.toLowerCase()) ||
-        taskName.includes(search.toLowerCase()) ||
-        v.assessed_by.toLowerCase().includes(search.toLowerCase());
-      const matchesStatus = statusFilter === "All" || v.status === statusFilter;
-      return matchesSearch && matchesStatus;
+    await addVOCRecord({
+      id: generateId(),
+      ...form,
+      expiry_date: expiryDate.toISOString().split("T")[0],
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [vocRecords, employees, tasks, search, statusFilter]);
-
-  const handleSave = async (record: VOCRecord) => {
-    if (editing) {
-      await updateVOCRecord(record);
-    } else {
-      await addVOCRecord(record);
-    }
-    await loadData();
-    setEditing(null);
     setDialogOpen(false);
+    // Reload to get updated recent list
+    window.location.reload();
   };
+
+  const templateCount = templates.length;
+  const tasksWithTemplates = new Set(templates.map((t) => t.task_id));
 
   return (
-    <div className="p-6 lg:p-10 max-w-7xl mx-auto">
+    <div className="p-6 lg:p-10 max-w-5xl mx-auto">
       <PageHeader
         title="VOC Assessment"
-        description="Verification of Competency assessments — auto 2-year expiry"
-      >
-        <div className="flex gap-2">
-          <Link href="/voc/assess">
-            <Button size="sm" className="gap-2">
-              <ClipboardCheck className="w-4 h-4" />
-              Digital Assessment
-            </Button>
-          </Link>
-          <Button
-            size="sm"
-            variant="outline"
-            className="gap-2"
-            onClick={() => {
-              setEditing(null);
-              setDialogOpen(true);
-            }}
-          >
-            <Plus className="w-4 h-4" />
-            Quick Entry
-          </Button>
-        </div>
-      </PageHeader>
+        description="Perform Verification of Competency assessments digitally or record paper-based results"
+      />
 
-      <Card className="mb-6 border-border/60">
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input
-                placeholder="Search by employee, task, or assessor..."
-                className="pl-9"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            <select
-              className="flex h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value as VOCStatus | "All")}
-            >
-              <option value="All">All Status</option>
-              <option value="Competent">Competent</option>
-              <option value="In Training">In Training</option>
-              <option value="Not Competent">Not Competent</option>
-            </select>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Quick Stats */}
+      <div className="grid grid-cols-3 gap-4 mb-8">
+        {[
+          { label: "Total Assessments", value: stats.total, color: "text-blue-400" },
+          { label: "Competent", value: stats.competent, color: "text-emerald-400" },
+          { label: "Expiring Soon", value: stats.expiringSoon, color: stats.expiringSoon > 0 ? "text-amber-400" : "text-muted-foreground" },
+        ].map((s) => (
+          <Card key={s.label} className="border-border/60">
+            <CardContent className="p-4 text-center">
+              <p className={`text-2xl font-bold ${s.color}`}>{s.value}</p>
+              <p className="text-[11px] text-muted-foreground uppercase tracking-wider mt-1">{s.label}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
 
-      <Card className="border-border/60">
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="text-xs">Employee</TableHead>
-                  <TableHead className="text-xs">Task</TableHead>
-                  <TableHead className="text-xs">Status</TableHead>
-                  <TableHead className="text-xs">Assessed Date</TableHead>
-                  <TableHead className="text-xs">Assessed By</TableHead>
-                  <TableHead className="text-xs">Expiry</TableHead>
-                  <TableHead className="text-xs">Expiry Status</TableHead>
-                  <TableHead className="text-xs text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filtered.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                      No VOC records found
-                    </TableCell>
-                  </TableRow>
+      {/* Action Cards */}
+      <div className="grid md:grid-cols-2 gap-6 mb-8">
+        {/* Digital Assessment */}
+        <Card className="border-border/60 hover:border-amber-500/30 transition-colors group">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-4">
+              <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-amber-500/10 border border-amber-500/20 group-hover:bg-amber-500/15 transition-colors">
+                <ClipboardCheck className="w-6 h-6 text-amber-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-base font-semibold mb-1">Digital Assessment</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Complete a full VOC assessment form digitally with knowledge questions,
+                  practical tasks, and signatures. Auto-generates a PDF.
+                </p>
+                {templateCount === 0 ? (
+                  <div className="p-3 rounded bg-amber-500/5 border border-amber-500/20 mb-3">
+                    <p className="text-xs text-amber-400">
+                      No assessment templates created yet. Go to{" "}
+                      <Link href="/settings" className="underline font-medium">
+                        Data Hub
+                      </Link>{" "}
+                      to create templates first.
+                    </p>
+                  </div>
                 ) : (
-                  filtered.map((voc) => {
-                    const vocDoc = getVocDoc(voc.employee_id, voc.task_id);
-                    return (
-                      <TableRow key={voc.id}>
-                        <TableCell className="font-medium text-sm">
-                          <Link
-                            href={`/personnel/${voc.employee_id}`}
-                            className="hover:underline"
-                          >
-                            {getEmployeeName(voc.employee_id)}
-                          </Link>
-                        </TableCell>
-                        <TableCell className="text-sm">
-                          {getTaskName(voc.task_id)}
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge status={voc.status} />
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {formatDate(voc.assessed_date)}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {voc.assessed_by}
-                        </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
-                          {formatDate(voc.expiry_date)}
-                        </TableCell>
-                        <TableCell>
-                          <StatusBadge status={getExpiryStatus(voc.expiry_date)} />
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
-                            {vocDoc && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 px-2 text-xs gap-1 text-amber-400 hover:text-amber-300"
-                                onClick={() => handleViewPdf(vocDoc)}
-                                title="View/Download PDF"
-                              >
-                                <FileDown className="w-3.5 h-3.5" />
-                                PDF
-                              </Button>
-                            )}
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="h-7 px-2"
-                              onClick={() => {
-                                setEditing(voc);
-                                setDialogOpen(true);
-                              }}
-                            >
-                              <Pencil className="w-3.5 h-3.5" />
-                            </Button>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
+                  <p className="text-xs text-muted-foreground mb-3">
+                    {templateCount} template{templateCount !== 1 ? "s" : ""} available
+                    ({tasksWithTemplates.size} competencies covered)
+                  </p>
                 )}
-              </TableBody>
-            </Table>
-          </div>
-        </CardContent>
-      </Card>
+                <Link href="/voc/assess">
+                  <Button className="gap-2" disabled={templateCount === 0}>
+                    <ClipboardCheck className="w-4 h-4" />
+                    Start Assessment
+                    <ArrowRight className="w-4 h-4" />
+                  </Button>
+                </Link>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
-      <VOCDialog
+        {/* Record Paper Assessment */}
+        <Card className="border-border/60 hover:border-blue-500/30 transition-colors group">
+          <CardContent className="p-6">
+            <div className="flex items-start gap-4">
+              <div className="flex items-center justify-center w-12 h-12 rounded-lg bg-blue-500/10 border border-blue-500/20 group-hover:bg-blue-500/15 transition-colors">
+                <FileText className="w-6 h-6 text-blue-400" />
+              </div>
+              <div className="flex-1">
+                <h3 className="text-base font-semibold mb-1">Record Paper Assessment</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Manually record the results of a paper-based VOC assessment.
+                  Upload a scanned copy from the employee&apos;s profile afterwards.
+                </p>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Records the competency status and expiry. Attach the paper
+                  copy via the employee&apos;s Documents tab.
+                </p>
+                <Button
+                  variant="outline"
+                  className="gap-2"
+                  onClick={() => setDialogOpen(true)}
+                >
+                  <Upload className="w-4 h-4" />
+                  Record Assessment
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Recent Assessments */}
+      {recentAssessments.length > 0 && (
+        <Card className="border-border/60">
+          <CardContent className="p-5">
+            <div className="flex items-center gap-2 mb-4">
+              <Clock className="w-4 h-4 text-muted-foreground" />
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                Recent Assessments
+              </h3>
+            </div>
+            <div className="space-y-2">
+              {recentAssessments.map((a, i) => (
+                <div
+                  key={i}
+                  className="flex items-center justify-between py-2 border-b border-border/30 last:border-0"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <Users className="w-4 h-4 text-muted-foreground/50 shrink-0" />
+                    <div className="min-w-0">
+                      <Link
+                        href={`/personnel/${a.employeeId}`}
+                        className="text-sm font-medium hover:underline truncate block"
+                      >
+                        {a.employeeName}
+                      </Link>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {a.taskName}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 shrink-0">
+                    <StatusBadge status={a.status} />
+                    <span className="text-xs text-muted-foreground">
+                      {formatDate(a.date)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-muted-foreground mt-3">
+              View full assessment history and documents in each{" "}
+              <Link href="/personnel" className="text-amber-400 hover:underline">
+                employee&apos;s profile
+              </Link>
+              .
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
+      <PaperAssessmentDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        record={editing}
         employees={employees}
         tasks={tasks}
-        onSave={handleSave}
+        onSave={handlePaperSave}
       />
     </div>
   );
 }
 
-function VOCDialog({
+function PaperAssessmentDialog({
   open,
   onOpenChange,
-  record,
   employees,
   tasks,
   onSave,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  record: VOCRecord | null;
   employees: Employee[];
   tasks: Task[];
-  onSave: (record: VOCRecord) => void;
+  onSave: (form: {
+    employee_id: string;
+    task_id: string;
+    status: VOCStatus;
+    assessed_date: string;
+    assessed_by: string;
+    notes: string;
+  }) => void;
 }) {
   const today = new Date().toISOString().split("T")[0];
   const [form, setForm] = useState({
@@ -299,16 +299,7 @@ function VOCDialog({
   });
 
   useEffect(() => {
-    if (record) {
-      setForm({
-        employee_id: record.employee_id,
-        task_id: record.task_id,
-        status: record.status,
-        assessed_date: record.assessed_date,
-        assessed_by: record.assessed_by,
-        notes: record.notes,
-      });
-    } else {
+    if (open) {
       setForm({
         employee_id: employees[0]?.id || "",
         task_id: tasks[0]?.id || "",
@@ -319,26 +310,18 @@ function VOCDialog({
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [record, open]);
+  }, [open]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const assessedDate = new Date(form.assessed_date);
-    const expiryDate = new Date(assessedDate);
-    expiryDate.setFullYear(expiryDate.getFullYear() + 2);
-
-    onSave({
-      id: record?.id || generateId(),
-      ...form,
-      expiry_date: expiryDate.toISOString().split("T")[0],
-    });
+    onSave(form);
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[480px]">
         <DialogHeader>
-          <DialogTitle>{record ? "Edit VOC Record" : "New VOC Assessment"}</DialogTitle>
+          <DialogTitle>Record Paper Assessment</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           <div className="grid grid-cols-2 gap-4">
@@ -347,16 +330,16 @@ function VOCDialog({
               <select
                 className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 value={form.employee_id}
-                onChange={(e) => setForm({ ...form, employee_id: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, employee_id: e.target.value })
+                }
                 required
               >
-                {employees
-                  .filter((e) => e.status === "Active")
-                  .map((e) => (
-                    <option key={e.id} value={e.id}>
-                      {e.first_name} {e.last_name}
-                    </option>
-                  ))}
+                {employees.map((e) => (
+                  <option key={e.id} value={e.id}>
+                    {e.first_name} {e.last_name}
+                  </option>
+                ))}
               </select>
             </div>
             <div className="space-y-2">
@@ -364,7 +347,9 @@ function VOCDialog({
               <select
                 className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 value={form.task_id}
-                onChange={(e) => setForm({ ...form, task_id: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, task_id: e.target.value })
+                }
                 required
               >
                 {tasks.map((t) => (
@@ -381,7 +366,9 @@ function VOCDialog({
               <select
                 className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
                 value={form.status}
-                onChange={(e) => setForm({ ...form, status: e.target.value as VOCStatus })}
+                onChange={(e) =>
+                  setForm({ ...form, status: e.target.value as VOCStatus })
+                }
               >
                 <option value="Competent">Competent</option>
                 <option value="In Training">In Training</option>
@@ -393,7 +380,9 @@ function VOCDialog({
               <Input
                 type="date"
                 value={form.assessed_date}
-                onChange={(e) => setForm({ ...form, assessed_date: e.target.value })}
+                onChange={(e) =>
+                  setForm({ ...form, assessed_date: e.target.value })
+                }
                 required
               />
             </div>
@@ -402,7 +391,9 @@ function VOCDialog({
             <Label>Assessed By</Label>
             <Input
               value={form.assessed_by}
-              onChange={(e) => setForm({ ...form, assessed_by: e.target.value })}
+              onChange={(e) =>
+                setForm({ ...form, assessed_by: e.target.value })
+              }
               required
               placeholder="Assessor name"
             />
@@ -417,13 +408,18 @@ function VOCDialog({
             />
           </div>
           <p className="text-xs text-muted-foreground">
-            Expiry will be automatically set to 2 years from the assessed date.
+            Expiry automatically set to 2 years. Upload the paper copy from the
+            employee&apos;s profile &rarr; Documents tab.
           </p>
           <div className="flex justify-end gap-3 pt-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
               Cancel
             </Button>
-            <Button type="submit">{record ? "Save Changes" : "Create Record"}</Button>
+            <Button type="submit">Save Assessment</Button>
           </div>
         </form>
       </DialogContent>

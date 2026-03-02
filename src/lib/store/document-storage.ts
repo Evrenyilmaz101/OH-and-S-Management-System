@@ -2,6 +2,15 @@ import { createClient } from '@/lib/supabase/client';
 
 const BUCKET = 'documents';
 
+/** Sanitise a filename for Supabase Storage (no braces, spaces → hyphens). */
+function sanitizeFileName(name: string): string {
+  return name
+    .replace(/[{}()\[\]#%&!@^+=~`"'<>|\\]/g, '')  // strip special chars
+    .replace(/\s+/g, '-')                            // spaces → hyphens
+    .replace(/-+/g, '-')                              // collapse multiple hyphens
+    .replace(/^-|-$/g, '');                            // trim leading/trailing hyphens
+}
+
 export interface UploadResult {
   path: string | null;
   error?: string;
@@ -15,7 +24,7 @@ export async function uploadDocumentFile(
   documentId: string
 ): Promise<UploadResult> {
   const supabase = createClient();
-  const filePath = `${documentId}/${file.name}`;
+  const filePath = `${documentId}/${sanitizeFileName(file.name)}`;
 
   const { data, error } = await supabase.storage
     .from(BUCKET)

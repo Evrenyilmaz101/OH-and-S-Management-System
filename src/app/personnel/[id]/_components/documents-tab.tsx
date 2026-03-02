@@ -32,8 +32,6 @@ import type {
   Employee,
   Document,
   DocumentCategory,
-  InductionRecord,
-  InductionChecklistTemplate,
   VOCRecord,
   Task,
   RoleDefinition,
@@ -42,15 +40,9 @@ import type {
 interface DocumentsTabProps {
   employee: Employee;
   documents: Document[];
-  inductionRecords: InductionRecord[];
-  inductionTemplates: InductionChecklistTemplate[];
   vocRecords: VOCRecord[];
   tasks: Task[];
   role: RoleDefinition | null;
-  onToggleInduction: (
-    templateId: string,
-    record?: InductionRecord
-  ) => void;
   onToggleVOC: (taskId: string, record?: VOCRecord) => void;
   onUploadDoc: (category?: DocumentCategory) => void;
   onOpenAttachment: (
@@ -155,45 +147,14 @@ function DocLinks({ docs, onDelete }: { docs: Document[]; onDelete?: (doc: Docum
 export function DocumentsTab({
   employee,
   documents,
-  inductionRecords,
-  inductionTemplates,
   vocRecords,
   tasks,
   role,
-  onToggleInduction,
   onToggleVOC,
   onUploadDoc,
   onOpenAttachment,
   onDeleteDoc,
 }: DocumentsTabProps) {
-  // ── Induction data ──
-  const applicableTemplates = useMemo(() => {
-    return inductionTemplates
-      .filter((t) => t.active)
-      .filter(
-        (t) =>
-          t.required_for === "All" ||
-          t.required_for === employee.employment_type
-      )
-      .sort((a, b) => a.order - b.order);
-  }, [inductionTemplates, employee.employment_type]);
-
-  const inductionMap = useMemo(() => {
-    const map = new Map<string, InductionRecord>();
-    for (const r of inductionRecords) {
-      map.set(r.checklist_item_id, r);
-    }
-    return map;
-  }, [inductionRecords]);
-
-  const inductionCompleted = useMemo(
-    () =>
-      applicableTemplates.filter(
-        (t) => inductionMap.get(t.id)?.status === "Completed"
-      ).length,
-    [applicableTemplates, inductionMap]
-  );
-
   // ── VOC data ──
   const requiredTaskIds = role?.required_task_ids || [];
 
@@ -238,175 +199,9 @@ export function DocumentsTab({
     [documents]
   );
 
-  // ── Grouped induction templates by category ──
-  const inductionGroups = useMemo(() => {
-    const groups = new Map<string, InductionChecklistTemplate[]>();
-    for (const t of applicableTemplates) {
-      const cat = t.category || "General";
-      if (!groups.has(cat)) groups.set(cat, []);
-      groups.get(cat)!.push(t);
-    }
-    return groups;
-  }, [applicableTemplates]);
-
   return (
     <div className="space-y-8">
-      {/* ═══════════════ SECTION 1: INDUCTION ═══════════════ */}
-      <section>
-        <div className="flex items-center justify-between mb-3">
-          <div className="section-header mb-0 flex items-center gap-2">
-            <ClipboardList className="w-3.5 h-3.5 text-blue-400" />
-            INDUCTION
-          </div>
-        </div>
-
-        {applicableTemplates.length > 0 && (
-          <div className="mb-4">
-            <ProgressBar
-              completed={inductionCompleted}
-              total={applicableTemplates.length}
-            />
-          </div>
-        )}
-
-        <Card className="border-border/60">
-          <CardContent className="p-0">
-            {applicableTemplates.length === 0 ? (
-              <div className="flex flex-col items-center gap-2 py-8 text-muted-foreground">
-                <ClipboardList className="w-8 h-8 text-muted-foreground/50" />
-                <p className="text-sm">No induction items configured.</p>
-                <p className="text-xs">
-                  Add induction templates in the database.
-                </p>
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="text-xs w-10"></TableHead>
-                      <TableHead className="text-xs">Item</TableHead>
-                      <TableHead className="text-xs">Status</TableHead>
-                      <TableHead className="text-xs">Completed</TableHead>
-                      <TableHead className="text-xs">Docs</TableHead>
-                      <TableHead className="text-xs text-right">
-                        Attach
-                      </TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {Array.from(inductionGroups.entries()).map(
-                      ([groupName, items]) => (
-                        <>
-                          <TableRow key={`group-${groupName}`}>
-                            <TableCell
-                              colSpan={6}
-                              className="bg-muted/30 py-1.5 px-4"
-                            >
-                              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                                {groupName}
-                              </span>
-                            </TableCell>
-                          </TableRow>
-                          {items.map((template) => {
-                            const record = inductionMap.get(template.id);
-                            const isCompleted =
-                              record?.status === "Completed";
-                            const attachedDocs = getDocsForItem(
-                              documents,
-                              "Induction Verification",
-                              template.id,
-                              "induction_item"
-                            );
-
-                            return (
-                              <TableRow key={template.id}>
-                                <TableCell className="text-center">
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      onToggleInduction(
-                                        template.id,
-                                        record
-                                      )
-                                    }
-                                    className="hover:scale-110 transition-transform"
-                                  >
-                                    {isCompleted ? (
-                                      <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                                    ) : (
-                                      <Circle className="w-5 h-5 text-muted-foreground/40" />
-                                    )}
-                                  </button>
-                                </TableCell>
-                                <TableCell>
-                                  <p className="text-sm font-medium">
-                                    {template.title}
-                                  </p>
-                                  {template.description && (
-                                    <p className="text-[11px] text-muted-foreground mt-0.5">
-                                      {template.description}
-                                    </p>
-                                  )}
-                                </TableCell>
-                                <TableCell>
-                                  <div className="flex items-center gap-1.5">
-                                    <StatusBadge
-                                      status={
-                                        isCompleted
-                                          ? "Completed"
-                                          : "Pending"
-                                      }
-                                    />
-                                    {isCompleted && attachedDocs.length === 0 && (
-                                      <span className="inline-flex items-center gap-1 text-xs font-medium text-amber-500 bg-amber-500/10 border border-amber-500/30 rounded px-1.5 py-0.5" title="Completed but no document uploaded">
-                                        <AlertTriangle className="w-3 h-3" />
-                                        No document uploaded
-                                      </span>
-                                    )}
-                                  </div>
-                                </TableCell>
-                                <TableCell className="text-sm text-muted-foreground data-value">
-                                  {record?.completed_date
-                                    ? formatDate(record.completed_date)
-                                    : "—"}
-                                </TableCell>
-                                <TableCell>
-                                  <DocLinks docs={attachedDocs} onDelete={onDeleteDoc} />
-                                </TableCell>
-                                <TableCell className="text-right">
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-7 px-2 text-xs"
-                                    onClick={() =>
-                                      onOpenAttachment(
-                                        `Induction - ${template.title}`,
-                                        "Induction Verification",
-                                        template.id,
-                                        "induction_item"
-                                      )
-                                    }
-                                  >
-                                    <Upload className="w-3.5 h-3.5 mr-1" />
-                                    Attach
-                                  </Button>
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })}
-                        </>
-                      )
-                    )}
-                  </TableBody>
-                </Table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </section>
-
-      {/* ═══════════════ SECTION 2: VERIFICATION OF COMPETENCIES ═══════════════ */}
+      {/* ═══════════════ VERIFICATION OF COMPETENCIES ═══════════════ */}
       <section>
         <div className="flex items-center justify-between mb-3">
           <div className="section-header mb-0 flex items-center gap-2">

@@ -350,8 +350,6 @@ export default function EmployeeFilePage() {
             compliance={compliance}
             role={role}
             tasks={tasks}
-            inductionTemplates={inductionTemplates}
-            inductionRecords={inductionRecords}
             documents={personalDocs}
             vocRecords={vocRecords}
           />
@@ -361,12 +359,9 @@ export default function EmployeeFilePage() {
           <DocumentsTab
             employee={employee}
             documents={personalDocs}
-            inductionRecords={inductionRecords}
-            inductionTemplates={inductionTemplates}
             vocRecords={vocRecords}
             tasks={tasks}
             role={role}
-            onToggleInduction={handleToggleInduction}
             onToggleVOC={handleToggleVOC}
             onUploadDoc={handleDocUpload}
             onOpenAttachment={handleOpenAttachment}

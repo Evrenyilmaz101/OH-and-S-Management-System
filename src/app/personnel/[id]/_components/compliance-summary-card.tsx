@@ -61,12 +61,6 @@ export function ComplianceSummaryCard({ compliance }: ComplianceSummaryProps) {
 
         <div className="space-y-3">
           <ProgressRow
-            label="Induction"
-            done={compliance.inductionDone}
-            total={compliance.inductionTotal}
-            percent={compliance.inductionProgress}
-          />
-          <ProgressRow
             label="VOC"
             done={compliance.vocMet}
             total={compliance.vocRequired}

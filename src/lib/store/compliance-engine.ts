@@ -124,30 +124,11 @@ export function computeCompliance(
     flags.push('No role assigned — assign a role to enable compliance tracking');
   }
 
-  // ── Induction ──
-  const applicableTemplates = templates.filter(
-    (t) =>
-      t.active &&
-      (t.required_for === 'All' || t.required_for === employee.employment_type)
-  );
-  const inductionTotal = applicableTemplates.length;
-  const inductionDone = applicableTemplates.filter((t) => {
-    const rec = inductionRecords.find((r) => r.checklist_item_id === t.id);
-    return rec?.status === 'Completed';
-  }).length;
-  const inductionProgress =
-    inductionTotal > 0 ? Math.round((inductionDone / inductionTotal) * 100) : 100;
-  const inductionComplete = inductionTotal === 0 || inductionDone === inductionTotal;
-
-  if (inductionTotal === 0) {
-    flags.push('No induction checklist configured — add induction templates');
-  } else if (!inductionComplete) {
-    if (inductionDone === 0) {
-      flags.push('Induction not started');
-    } else {
-      flags.push(`Induction ${inductionDone}/${inductionTotal} complete`);
-    }
-  }
+  // ── Induction (disabled for now) ──
+  const inductionTotal = 0;
+  const inductionDone = 0;
+  const inductionProgress = 100;
+  const inductionComplete = true;
 
   // ── VOC ──
   const requiredTaskIds = role?.required_task_ids || [];
@@ -242,9 +223,9 @@ export function computeCompliance(
   }
 
   // ── Overall ──
-  // Weights: induction 30%, VOC 40%, certs 30%
+  // Weights: VOC 60%, certs 40% (induction disabled for now)
   const overallCompliance = Math.round(
-    inductionProgress * 0.3 + vocProgress * 0.4 + certsProgress * 0.3
+    vocProgress * 0.6 + certsProgress * 0.4
   );
   const needsAttention = flags.length > 0;
 

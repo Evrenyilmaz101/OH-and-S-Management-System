@@ -5,7 +5,6 @@ import {
   Info,
   CheckCircle2,
   Circle,
-  ClipboardList,
   ShieldCheck,
   FileWarning,
 } from "lucide-react";
@@ -16,8 +15,6 @@ import type {
   Document,
   RoleDefinition,
   Task,
-  InductionChecklistTemplate,
-  InductionRecord,
   VOCRecord,
 } from "@/lib/types";
 import type { ComplianceStatus } from "@/lib/store/compliance-engine";
@@ -27,8 +24,6 @@ interface OverviewTabProps {
   compliance: ComplianceStatus;
   role: RoleDefinition | null;
   tasks: Task[];
-  inductionTemplates: InductionChecklistTemplate[];
-  inductionRecords: InductionRecord[];
   documents: Document[];
   vocRecords: VOCRecord[];
 }
@@ -51,8 +46,6 @@ export function OverviewTab({
   compliance,
   role,
   tasks,
-  inductionTemplates,
-  inductionRecords,
   documents,
   vocRecords,
 }: OverviewTabProps) {
@@ -61,35 +54,9 @@ export function OverviewTab({
     (f) =>
       f.includes("configured") ||
       f.includes("assign") ||
-      f.includes("edit role") ||
-      f.includes("add induction")
+      f.includes("edit role")
   );
   const alerts = compliance.flags.filter((f) => !configHints.includes(f));
-
-  // Build induction status list
-  const applicableTemplates = inductionTemplates
-    .filter(
-      (t) =>
-        t.active &&
-        (t.required_for === "All" ||
-          t.required_for === employee.employment_type)
-    )
-    .sort((a, b) => a.order - b.order);
-
-  const inductionItems = applicableTemplates.map((t) => {
-    const record = inductionRecords.find(
-      (r) => r.checklist_item_id === t.id
-    );
-    const done = record?.status === "Completed";
-    const hasDoc = done && documents.some(
-      (d) => d.category === "Induction Verification" && d.related_entity_id === t.id && d.related_entity_type === "induction_item"
-    );
-    return {
-      name: t.title,
-      done,
-      missingDoc: done && !hasDoc,
-    };
-  });
 
   // Build VOC status list
   const requiredTaskIds = role?.required_task_ids || [];
@@ -115,9 +82,8 @@ export function OverviewTab({
   });
 
   // Missing-doc counts
-  const missingInductionDocs = inductionItems.filter((i) => i.missingDoc).length;
   const missingVocDocs = vocItems.filter((i) => i.missingDoc).length;
-  const totalMissingDocs = missingInductionDocs + missingVocDocs;
+  const totalMissingDocs = missingVocDocs;
 
   return (
     <div className="space-y-6">
@@ -130,8 +96,6 @@ export function OverviewTab({
               {totalMissingDocs} completed item{totalMissingDocs !== 1 ? "s" : ""} missing documentation
             </p>
             <p className="text-xs text-amber-400/70 mt-0.5">
-              {missingInductionDocs > 0 && `${missingInductionDocs} induction`}
-              {missingInductionDocs > 0 && missingVocDocs > 0 && ", "}
               {missingVocDocs > 0 && `${missingVocDocs} competenc${missingVocDocs !== 1 ? "ies" : "y"}`}
               {" "}— go to the Documents tab to upload supporting documents.
             </p>
@@ -176,59 +140,6 @@ export function OverviewTab({
 
       {/* Status Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {/* Induction Card */}
-        <Card className="border-border/60">
-          <CardContent className="p-4">
-            <div className="flex items-center gap-2 mb-3">
-              <ClipboardList className="w-4 h-4 text-blue-400" />
-              <span className="text-xs font-semibold uppercase tracking-wider">
-                Induction
-              </span>
-              {inductionItems.length > 0 && (
-                <span className="ml-auto text-xs text-muted-foreground">
-                  {inductionItems.filter((i) => i.done).length}/
-                  {inductionItems.length}
-                </span>
-              )}
-            </div>
-            {inductionItems.length === 0 ? (
-              <p className="text-xs text-muted-foreground">
-                No induction items configured
-              </p>
-            ) : (
-              <div className="space-y-1.5">
-                {inductionItems.map((item, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    {item.missingDoc ? (
-                      <FileWarning className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                    ) : item.done ? (
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
-                    ) : (
-                      <Circle className="w-3.5 h-3.5 text-muted-foreground/40 shrink-0" />
-                    )}
-                    <span
-                      className={`text-xs ${
-                        item.missingDoc
-                          ? "text-amber-500"
-                          : item.done
-                          ? "text-muted-foreground"
-                          : "text-foreground"
-                      }`}
-                    >
-                      {item.name}
-                    </span>
-                    {item.missingDoc && (
-                      <span className="text-[10px] font-medium text-amber-500 bg-amber-500/10 border border-amber-500/30 rounded px-1 py-0.5">
-                        No document uploaded
-                      </span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
         {/* VOC Card */}
         <Card className="border-border/60">
           <CardContent className="p-4">

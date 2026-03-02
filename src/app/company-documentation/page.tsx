@@ -63,10 +63,12 @@ export default function CompanyDocumentationPage() {
     const tplWithFile = { ...tpl, file_url: fileUrl, file_name: file?.name || tpl.file_name };
 
     if (editingTemplate) {
-      await updateDocumentTemplate(tplWithFile);
+      const result = await updateDocumentTemplate(tplWithFile);
+      if (!result) { toast.error("Failed to update template"); return; }
       toast.success("Template updated");
     } else {
-      await addDocumentTemplate(tplWithFile);
+      const result = await addDocumentTemplate(tplWithFile);
+      if (!result) { toast.error("Failed to add template"); return; }
       toast.success("Template added");
     }
     await loadData();
@@ -121,10 +123,12 @@ export default function CompanyDocumentationPage() {
     const polWithFile = { ...pol, file_url: fileUrl, file_name: file?.name || pol.file_name };
 
     if (editingPolicy) {
-      await updateCompanyPolicy(polWithFile);
+      const result = await updateCompanyPolicy(polWithFile);
+      if (!result) { toast.error("Failed to update policy"); return; }
       toast.success("Policy updated");
     } else {
-      await addCompanyPolicy(polWithFile);
+      const result = await addCompanyPolicy(polWithFile);
+      if (!result) { toast.error("Failed to add policy"); return; }
       toast.success("Policy added");
     }
     await loadData();

@@ -1,15 +1,15 @@
 "use client";
 
 /* VOC Assessment Hub */
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import {
   ClipboardCheck,
   Upload,
   FileText,
-  Users,
   ArrowRight,
-  Clock,
+  Paperclip,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,24 +22,23 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/page-header";
-import { StatusBadge } from "@/components/status-badge";
 import {
   getVOCRecords,
   getEmployees,
   getTasks,
   addVOCRecord,
   getVOCTemplates,
+  addDocument,
 } from "@/lib/store/index";
-import { formatDate, generateId } from "@/lib/utils";
+import { uploadDocumentFile } from "@/lib/store/document-storage";
+import { generateId } from "@/lib/utils";
+import { toast } from "sonner";
 import type { Employee, Task, VOCStatus, VOCAssessmentTemplate } from "@/lib/types";
 
 export default function VOCPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [templates, setTemplates] = useState<VOCAssessmentTemplate[]>([]);
-  const [recentAssessments, setRecentAssessments] = useState<
-    { employeeName: string; taskName: string; status: string; date: string; employeeId: string }[]
-  >([]);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [stats, setStats] = useState({ total: 0, competent: 0, expiringSoon: 0 });
 
@@ -65,24 +64,6 @@ export default function VOCPage() {
         return v.status === "Competent" && exp <= soon && exp >= now;
       }).length;
       setStats({ total: vocRecords.length, competent: competentCount, expiringSoon: expiringCount });
-
-      // Recent 5
-      const sorted = [...vocRecords].sort(
-        (a, b) => new Date(b.assessed_date).getTime() - new Date(a.assessed_date).getTime()
-      );
-      setRecentAssessments(
-        sorted.slice(0, 5).map((v) => {
-          const emp = emps.find((e) => e.id === v.employee_id);
-          const task = tsks.find((t) => t.id === v.task_id);
-          return {
-            employeeName: emp ? `${emp.first_name} ${emp.last_name}` : "Unknown",
-            taskName: task?.name || "Unknown",
-            status: v.status,
-            date: v.assessed_date,
-            employeeId: v.employee_id,
-          };
-        })
-      );
     })();
   }, []);
 
@@ -93,7 +74,7 @@ export default function VOCPage() {
     assessed_date: string;
     assessed_by: string;
     notes: string;
-  }) => {
+  }, file?: File) => {
     const assessedDate = new Date(form.assessed_date);
     const expiryDate = new Date(assessedDate);
     expiryDate.setFullYear(expiryDate.getFullYear() + 2);
@@ -103,8 +84,34 @@ export default function VOCPage() {
       ...form,
       expiry_date: expiryDate.toISOString().split("T")[0],
     });
+
+    // Upload scanned file and create document record if provided
+    if (file) {
+      const docId = generateId();
+      const path = await uploadDocumentFile(file, docId);
+      if (path) {
+        const emp = employees.find((e) => e.id === form.employee_id);
+        const task = tasks.find((t) => t.id === form.task_id);
+        await addDocument({
+          id: docId,
+          title: `VOC Assessment - ${task?.name || "Unknown"} - ${emp ? `${emp.first_name} ${emp.last_name}` : "Unknown"}`,
+          description: `Paper VOC assessment recorded ${form.assessed_date}. Assessed by ${form.assessed_by}.`,
+          category: "VOC Verification",
+          file_name: file.name,
+          file_url: path,
+          related_entity_id: form.employee_id,
+          related_entity_type: "employee",
+          tags: [`emp:${form.employee_id}`],
+        });
+        toast.success("Assessment saved with scanned document");
+      } else {
+        toast.error("Assessment saved but file upload failed");
+      }
+    } else {
+      toast.success("Assessment saved");
+    }
+
     setDialogOpen(false);
-    // Reload to get updated recent list
     window.location.reload();
   };
 
@@ -208,56 +215,6 @@ export default function VOCPage() {
         </Card>
       </div>
 
-      {/* Recent Assessments */}
-      {recentAssessments.length > 0 && (
-        <Card className="border-border/60">
-          <CardContent className="p-5">
-            <div className="flex items-center gap-2 mb-4">
-              <Clock className="w-4 h-4 text-muted-foreground" />
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                Recent Assessments
-              </h3>
-            </div>
-            <div className="space-y-2">
-              {recentAssessments.map((a, i) => (
-                <div
-                  key={i}
-                  className="flex items-center justify-between py-2 border-b border-border/30 last:border-0"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <Users className="w-4 h-4 text-muted-foreground/50 shrink-0" />
-                    <div className="min-w-0">
-                      <Link
-                        href={`/personnel/${a.employeeId}`}
-                        className="text-sm font-medium hover:underline truncate block"
-                      >
-                        {a.employeeName}
-                      </Link>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {a.taskName}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <StatusBadge status={a.status} />
-                    <span className="text-xs text-muted-foreground">
-                      {formatDate(a.date)}
-                    </span>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <p className="text-xs text-muted-foreground mt-3">
-              View full assessment history and documents in each{" "}
-              <Link href="/personnel" className="text-amber-400 hover:underline">
-                employee&apos;s profile
-              </Link>
-              .
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
       <PaperAssessmentDialog
         open={dialogOpen}
         onOpenChange={setDialogOpen}
@@ -267,6 +224,22 @@ export default function VOCPage() {
       />
     </div>
   );
+}
+
+const ACCEPTED_EXTENSIONS = ".pdf,.doc,.docx,.jpg,.jpeg,.png";
+const ACCEPTED_TYPES = [
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "image/jpeg",
+  "image/png",
+];
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
 function PaperAssessmentDialog({
@@ -287,7 +260,7 @@ function PaperAssessmentDialog({
     assessed_date: string;
     assessed_by: string;
     notes: string;
-  }) => void;
+  }, file?: File) => void;
 }) {
   const today = new Date().toISOString().split("T")[0];
   const [form, setForm] = useState({
@@ -298,6 +271,9 @@ function PaperAssessmentDialog({
     assessed_by: "",
     notes: "",
   });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [fileError, setFileError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
@@ -309,14 +285,38 @@ function PaperAssessmentDialog({
         assessed_by: "",
         notes: "",
       });
+      setSelectedFile(null);
+      setFileError(null);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  const validateAndSetFile = (file: File) => {
+    setFileError(null);
+    if (!ACCEPTED_TYPES.includes(file.type) && file.type !== "") {
+      setFileError("Unsupported file type. Accepted: PDF, DOC, DOCX, JPG, PNG");
+      return;
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      setFileError(`File too large (${formatFileSize(file.size)}). Maximum 10 MB.`);
+      return;
+    }
+    setSelectedFile(file);
+  };
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) validateAndSetFile(file);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave(form);
+    onSave(form, selectedFile || undefined);
   };
+
+  const selectClasses =
+    "flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -329,7 +329,7 @@ function PaperAssessmentDialog({
             <div className="space-y-2">
               <Label>Employee</Label>
               <select
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className={selectClasses}
                 value={form.employee_id}
                 onChange={(e) =>
                   setForm({ ...form, employee_id: e.target.value })
@@ -346,7 +346,7 @@ function PaperAssessmentDialog({
             <div className="space-y-2">
               <Label>Task</Label>
               <select
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className={selectClasses}
                 value={form.task_id}
                 onChange={(e) =>
                   setForm({ ...form, task_id: e.target.value })
@@ -365,7 +365,7 @@ function PaperAssessmentDialog({
             <div className="space-y-2">
               <Label>Status</Label>
               <select
-                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                className={selectClasses}
                 value={form.status}
                 onChange={(e) =>
                   setForm({ ...form, status: e.target.value as VOCStatus })
@@ -408,9 +408,54 @@ function PaperAssessmentDialog({
               onChange={(e) => setForm({ ...form, notes: e.target.value })}
             />
           </div>
+
+          {/* Scanned Copy Upload */}
+          <div className="space-y-2">
+            <Label>Scanned Copy</Label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              accept={ACCEPTED_EXTENSIONS}
+              onChange={handleFileSelect}
+            />
+            {selectedFile ? (
+              <div className="flex items-center gap-2 p-2.5 rounded-lg border border-emerald-500/50 bg-emerald-500/5">
+                <Paperclip className="w-4 h-4 text-emerald-500 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{selectedFile.name}</p>
+                  <p className="text-[11px] text-muted-foreground">{formatFileSize(selectedFile.size)}</p>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 w-7 p-0 shrink-0"
+                  onClick={() => setSelectedFile(null)}
+                >
+                  <X className="w-3.5 h-3.5" />
+                </Button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                className="w-full flex items-center justify-center gap-2 p-3 rounded-lg border-2 border-dashed border-border hover:border-muted-foreground text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+              >
+                <Upload className="w-4 h-4" />
+                <span className="text-sm">Upload scanned assessment</span>
+              </button>
+            )}
+            {fileError && (
+              <p className="text-xs text-destructive">{fileError}</p>
+            )}
+            <p className="text-[11px] text-muted-foreground">
+              PDF, DOC, JPG, or PNG — max 10 MB. Optional but recommended.
+            </p>
+          </div>
+
           <p className="text-xs text-muted-foreground">
-            Expiry automatically set to 2 years. Upload the paper copy from the
-            employee&apos;s profile &rarr; Documents tab.
+            Expiry automatically set to 2 years from assessed date.
           </p>
           <div className="flex justify-end gap-3 pt-2">
             <Button

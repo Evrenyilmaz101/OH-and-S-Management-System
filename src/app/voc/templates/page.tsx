@@ -244,7 +244,16 @@ function TemplateFormDialog({
       setTaskId(tasks[0]?.id || "");
       setSopReference("");
       setActive(true);
-      setQuestions([{ question: "" }]);
+      // Pre-fill with standard knowledge questions (generic across all equipment)
+      setQuestions([
+        { question: "What is the primary function of this equipment/tool?" },
+        { question: "List 3 pre-start checks." },
+        { question: "Name 2 safety issues that may affect this equipment." },
+        { question: "What action should be taken if faults are found?" },
+        { question: "List 2 safety features and describe their purpose." },
+        { question: "Identify 3 hazards and a control for each." },
+        { question: "List the PPE requirements for this task." },
+      ]);
       setPracticalTasks([{ task: "", criteria: "" }]);
     }
   }, [template, open, tasks]);

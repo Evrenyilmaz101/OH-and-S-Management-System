@@ -18,41 +18,20 @@ interface AssessmentData {
 
 export function generateVOCPdf(data: AssessmentData): Blob {
   const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  const pw = 210; // page width
+  const pw = 210;
   const margin = 15;
-  const cw = pw - margin * 2; // content width
-  let y = 15;
+  const cw = pw - margin * 2;
+  let y = 0;
 
-  const darkGray = "#333333";
-  const medGray = "#666666";
-  const lightGray = "#e5e5e5";
-  const headerBg = "#1a1a2e";
+  const black = "#000000";
+  const borderColor = "#000000";
+  const lightFill = "#f2f2f2";
+  const lineW = 0.3;
 
-  // Helper: draw a filled rect with text
-  function sectionHeader(text: string) {
-    doc.setFillColor(headerBg);
-    doc.rect(margin, y, cw, 8, "F");
-    doc.setTextColor("#ffffff");
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "bold");
-    doc.text(text, margin + 3, y + 5.5);
-    y += 8;
-    doc.setTextColor(darkGray);
-  }
+  doc.setDrawColor(borderColor);
+  doc.setLineWidth(lineW);
 
-  function tableHeader(cols: { text: string; x: number; w: number }[]) {
-    doc.setFillColor("#f0f0f0");
-    doc.rect(margin, y, cw, 7, "F");
-    doc.setDrawColor(lightGray);
-    doc.rect(margin, y, cw, 7, "S");
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(darkGray);
-    cols.forEach((col) => {
-      doc.text(col.text, col.x, y + 5);
-    });
-    y += 7;
-  }
+  // ── Helpers ──
 
   function checkPage(needed: number) {
     if (y + needed > 280) {
@@ -61,267 +40,401 @@ export function generateVOCPdf(data: AssessmentData): Blob {
     }
   }
 
-  // === DOCUMENT HEADER ===
-  doc.setFillColor(headerBg);
-  doc.rect(0, 0, pw, 28, "F");
-  doc.setTextColor("#ffffff");
-  doc.setFontSize(16);
-  doc.setFont("helvetica", "bold");
-  doc.text("VERIFICATION OF COMPETENCY", pw / 2, 12, { align: "center" });
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-  doc.text(`${data.taskName}`, pw / 2, 18, { align: "center" });
-  doc.setFontSize(7);
-  doc.setTextColor("#aaaaaa");
-  doc.text(`Document: ${data.documentNumber}`, pw / 2, 24, { align: "center" });
-  y = 33;
+  function drawCell(x: number, yPos: number, w: number, h: number, text: string, opts?: {
+    bold?: boolean; fontSize?: number; fill?: string; align?: "left" | "center"; valign?: "top" | "middle";
+  }) {
+    const fs = opts?.fontSize || 8;
+    const bold = opts?.bold || false;
+    const fill = opts?.fill;
+    const align = opts?.align || "left";
+    const valign = opts?.valign || "middle";
 
-  // === 1.0 PARTICIPANT DETAILS ===
-  sectionHeader("1.0  PARTICIPANT DETAILS");
-  const fieldRows = [
-    ["Employee Name:", data.employeeName, "Position:", data.employeePosition],
-    ["Assessor Name:", data.assessorName, "Date:", data.assessmentDate],
-  ];
-  fieldRows.forEach((row) => {
-    doc.setDrawColor(lightGray);
-    doc.rect(margin, y, cw, 8, "S");
-    doc.setFontSize(8);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(medGray);
-    doc.text(row[0], margin + 3, y + 5.5);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(darkGray);
-    doc.text(row[1], margin + 38, y + 5.5);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(medGray);
-    doc.text(row[2], margin + cw / 2 + 3, y + 5.5);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(darkGray);
-    doc.text(row[3], margin + cw / 2 + 38, y + 5.5);
-    y += 8;
-  });
-  y += 4;
+    if (fill) {
+      doc.setFillColor(fill);
+      doc.rect(x, yPos, w, h, "FD");
+    } else {
+      doc.rect(x, yPos, w, h, "S");
+    }
 
-  // === 2.0 SOP ACKNOWLEDGEMENT ===
-  checkPage(25);
-  sectionHeader("2.0  SOP ACKNOWLEDGEMENT");
-  doc.setFontSize(8);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(darkGray);
-  doc.text(
-    "Has the employee read and understood the relevant Standard Operating Procedure (SOP)?",
-    margin + 3,
-    y + 5
-  );
-  // Checkboxes
-  const yesX = margin + cw - 40;
-  const noX = margin + cw - 20;
-  doc.setDrawColor(medGray);
-  doc.rect(yesX, y + 1.5, 4, 4, "S");
-  doc.rect(noX, y + 1.5, 4, 4, "S");
-  if (data.sopAcknowledged) {
-    doc.setFillColor("#22c55e");
-    doc.rect(yesX + 0.5, y + 2, 3, 3, "F");
-  } else {
-    doc.setFillColor("#ef4444");
-    doc.rect(noX + 0.5, y + 2, 3, 3, "F");
+    doc.setFontSize(fs);
+    doc.setFont("helvetica", bold ? "bold" : "normal");
+    doc.setTextColor(black);
+
+    const textX = align === "center" ? x + w / 2 : x + 2;
+    const textY = valign === "top" ? yPos + fs * 0.4 + 1 : yPos + h / 2 + fs * 0.15;
+    const maxW = w - 4;
+
+    if (maxW > 0) {
+      const lines = doc.splitTextToSize(text, maxW);
+      if (valign === "top") {
+        doc.text(lines, textX, textY, { align, maxWidth: maxW });
+      } else {
+        doc.text(lines, textX, textY, { align, maxWidth: maxW });
+      }
+    }
   }
-  doc.setFontSize(7);
-  doc.text("YES", yesX + 6, y + 5);
-  doc.text("NO", noX + 6, y + 5);
-  y += 12;
 
-  // === 3.0 KNOWLEDGE ASSESSMENT ===
-  checkPage(20 + data.knowledgeResponses.length * 18);
-  sectionHeader("3.0  KNOWLEDGE ASSESSMENT");
-  tableHeader([
-    { text: "Question", x: margin + 3, w: 70 },
-    { text: "Response", x: margin + 73, w: 70 },
-    { text: "Result", x: margin + cw - 22, w: 20 },
-  ]);
+  function tick(x: number, yPos: number, h: number) {
+    const cx = x + 2;
+    const cy = yPos + h / 2;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor("#000000");
+    doc.text("\u2713", cx, cy + 1.5);
+  }
+
+  function cross(x: number, yPos: number, h: number) {
+    const cx = x + 2;
+    const cy = yPos + h / 2;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.setTextColor("#000000");
+    doc.text("\u2717", cx, cy + 1.5);
+  }
+
+  // ── COMPANY HEADER ──
+  // Top border bar
+  doc.setFillColor("#000000");
+  doc.rect(margin, margin, cw, 1.5, "F");
+  y = margin + 1.5;
+
+  // Company name row
+  const headerH = 12;
+  doc.rect(margin, y, cw, headerH, "S");
+  doc.setFontSize(14);
+  doc.setFont("helvetica", "bold");
+  doc.setTextColor(black);
+  doc.text("THORNTON ENGINEERING", pw / 2, y + headerH / 2 + 2, { align: "center" });
+  y += headerH;
+
+  // Document title row
+  const titleH = 10;
+  doc.setFillColor(lightFill);
+  doc.rect(margin, y, cw, titleH, "FD");
+  doc.setFontSize(11);
+  doc.setFont("helvetica", "bold");
+  doc.text("VERIFICATION OF COMPETENCY (VOC)", pw / 2, y + titleH / 2 + 1.5, { align: "center" });
+  y += titleH;
+
+  // Document info row
+  const infoH = 7;
+  const col1W = cw * 0.5;
+  const col2W = cw * 0.25;
+  const col3W = cw * 0.25;
+  drawCell(margin, y, col1W, infoH, `Equipment/Task: ${data.taskName}`, { bold: true, fontSize: 8 });
+  drawCell(margin + col1W, y, col2W, infoH, `Doc: ${data.documentNumber}`, { fontSize: 7 });
+  drawCell(margin + col1W + col2W, y, col3W, infoH, `Date: ${data.assessmentDate}`, { fontSize: 7 });
+  y += infoH;
+
+  // Bottom border bar
+  doc.setFillColor("#000000");
+  doc.rect(margin, y, cw, 0.8, "F");
+  y += 3;
+
+  // ── 1.0 PARTICIPANT DETAILS ──
+  const s1H = 7;
+  doc.setFillColor(lightFill);
+  doc.rect(margin, y, cw, s1H, "FD");
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.text("1.0  PARTICIPANT DETAILS", margin + 3, y + s1H / 2 + 1.5);
+  y += s1H;
+
+  const rowH = 8;
+  const halfW = cw / 2;
+  const labelW = 32;
+  const valW = halfW - labelW;
+
+  // Row: Employee Name | Position
+  drawCell(margin, y, labelW, rowH, "Employee Name:", { bold: true, fontSize: 7.5, fill: lightFill });
+  drawCell(margin + labelW, y, valW, rowH, data.employeeName, { fontSize: 8 });
+  drawCell(margin + halfW, y, labelW, rowH, "Position:", { bold: true, fontSize: 7.5, fill: lightFill });
+  drawCell(margin + halfW + labelW, y, valW, rowH, data.employeePosition, { fontSize: 8 });
+  y += rowH;
+
+  // Row: Trainer/Assessor Name | Date
+  drawCell(margin, y, labelW, rowH, "Assessor Name:", { bold: true, fontSize: 7.5, fill: lightFill });
+  drawCell(margin + labelW, y, valW, rowH, data.assessorName, { fontSize: 8 });
+  drawCell(margin + halfW, y, labelW, rowH, "Date:", { bold: true, fontSize: 7.5, fill: lightFill });
+  drawCell(margin + halfW + labelW, y, valW, rowH, data.assessmentDate, { fontSize: 8 });
+  y += rowH + 3;
+
+  // ── 2.0 SOP ACKNOWLEDGEMENT ──
+  checkPage(22);
+  doc.setFillColor(lightFill);
+  doc.rect(margin, y, cw, s1H, "FD");
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.text("2.0  SOP ACKNOWLEDGEMENT", margin + 3, y + s1H / 2 + 1.5);
+  y += s1H;
+
+  const sopRowH = 9;
+  const sopTextW = cw - 30;
+  drawCell(margin, y, sopTextW, sopRowH, "Has the employee read and understood the relevant Standard Operating Procedure (SOP)?", { fontSize: 7.5, valign: "middle" });
+
+  // YES box
+  const yesBoxX = margin + sopTextW;
+  doc.rect(yesBoxX, y, 15, sopRowH, "S");
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "bold");
+  doc.text("YES", yesBoxX + 3, y + 4);
+  if (data.sopAcknowledged) {
+    doc.rect(yesBoxX + 3, y + 5, 3.5, 3.5, "S");
+    doc.setFillColor("#000000");
+    doc.rect(yesBoxX + 3.5, y + 5.5, 2.5, 2.5, "F");
+  } else {
+    doc.rect(yesBoxX + 3, y + 5, 3.5, 3.5, "S");
+  }
+
+  // NO box
+  const noBoxX = margin + sopTextW + 15;
+  doc.rect(noBoxX, y, 15, sopRowH, "S");
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "bold");
+  doc.text("NO", noBoxX + 3, y + 4);
+  if (!data.sopAcknowledged) {
+    doc.rect(noBoxX + 3, y + 5, 3.5, 3.5, "S");
+    doc.setFillColor("#000000");
+    doc.rect(noBoxX + 3.5, y + 5.5, 2.5, 2.5, "F");
+  } else {
+    doc.rect(noBoxX + 3, y + 5, 3.5, 3.5, "S");
+  }
+  y += sopRowH + 3;
+
+  // ── 3.0 KNOWLEDGE ASSESSMENT ──
+  checkPage(20);
+  doc.setFillColor(lightFill);
+  doc.rect(margin, y, cw, s1H, "FD");
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.text("3.0  KNOWLEDGE ASSESSMENT", margin + 3, y + s1H / 2 + 1.5);
+  y += s1H;
+
+  // Table header
+  const kqCol = 60;
+  const krCol = 75;
+  const kcCol = cw - kqCol - krCol;
+  const thH = 6;
+
+  doc.setFillColor(lightFill);
+  doc.rect(margin, y, kqCol, thH, "FD");
+  doc.rect(margin + kqCol, y, krCol, thH, "FD");
+  doc.rect(margin + kqCol + krCol, y, kcCol, thH, "FD");
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "bold");
+  doc.text("Question", margin + 3, y + 4);
+  doc.text("Response", margin + kqCol + 3, y + 4);
+  doc.text("Competent", margin + kqCol + krCol + 2, y + 4);
+  y += thH;
 
   data.knowledgeResponses.forEach((kr) => {
-    // Wrap question text
     doc.setFontSize(7);
-    const qLines = doc.splitTextToSize(kr.question, 65);
-    const rLines = doc.splitTextToSize(kr.response || "—", 65);
-    const rowH = Math.max(qLines.length, rLines.length) * 3.5 + 4;
-    checkPage(rowH);
+    const qLines = doc.splitTextToSize(kr.question, kqCol - 4);
+    const rLines = doc.splitTextToSize(kr.response || "", krCol - 4);
+    const rH = Math.max(qLines.length, rLines.length, 1) * 3.2 + 3;
+    checkPage(rH);
 
-    doc.setDrawColor(lightGray);
-    doc.rect(margin, y, cw, rowH, "S");
-    // Vertical dividers
-    doc.line(margin + 70, y, margin + 70, y + rowH);
-    doc.line(margin + cw - 25, y, margin + cw - 25, y + rowH);
+    doc.rect(margin, y, kqCol, rH, "S");
+    doc.rect(margin + kqCol, y, krCol, rH, "S");
+    doc.rect(margin + kqCol + krCol, y, kcCol, rH, "S");
 
     doc.setFont("helvetica", "normal");
-    doc.setTextColor(darkGray);
-    doc.text(qLines, margin + 3, y + 4);
-    doc.text(rLines, margin + 73, y + 4);
+    doc.text(qLines, margin + 2, y + 3.5);
+    doc.text(rLines, margin + kqCol + 2, y + 3.5);
 
-    // Competent badge
-    doc.setFontSize(6);
+    // Tick or cross
     if (kr.competent) {
-      doc.setTextColor("#16a34a");
-      doc.text("COMPETENT", margin + cw - 22, y + rowH / 2 + 1);
+      tick(margin + kqCol + krCol + 4, y, rH);
     } else {
-      doc.setTextColor("#dc2626");
-      doc.text("NOT YET", margin + cw - 22, y + rowH / 2 + 1);
+      cross(margin + kqCol + krCol + 4, y, rH);
     }
-    doc.setTextColor(darkGray);
-    y += rowH;
-  });
-  y += 4;
 
-  // === 4.0 PRACTICAL ASSESSMENT ===
+    y += rH;
+  });
+  y += 3;
+
+  // ── 4.0 PRACTICAL ASSESSMENT ──
   checkPage(20);
-  sectionHeader("4.0  PRACTICAL ASSESSMENT");
-  tableHeader([
-    { text: "Task", x: margin + 3, w: 35 },
-    { text: "Criteria", x: margin + 38, w: 95 },
-    { text: "Result", x: margin + cw - 22, w: 20 },
-  ]);
+  doc.setFillColor(lightFill);
+  doc.rect(margin, y, cw, s1H, "FD");
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.text("4.0  PRACTICAL ASSESSMENT", margin + 3, y + s1H / 2 + 1.5);
+  y += s1H;
+
+  // Table header
+  const ptCol = 35;
+  const pcCol = cw - ptCol - kcCol;
+
+  doc.setFillColor(lightFill);
+  doc.rect(margin, y, ptCol, thH, "FD");
+  doc.rect(margin + ptCol, y, pcCol, thH, "FD");
+  doc.rect(margin + ptCol + pcCol, y, kcCol, thH, "FD");
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "bold");
+  doc.text("Task", margin + 3, y + 4);
+  doc.text("Criteria", margin + ptCol + 3, y + 4);
+  doc.text("Competent", margin + ptCol + pcCol + 2, y + 4);
+  y += thH;
 
   data.practicalResponses.forEach((pr) => {
     doc.setFontSize(7);
-    const tLines = doc.splitTextToSize(pr.task, 32);
-    const cLines = doc.splitTextToSize(pr.criteria, 90);
-    const rowH = Math.max(tLines.length, cLines.length) * 3.5 + 4;
-    checkPage(rowH);
+    const tLines = doc.splitTextToSize(pr.task, ptCol - 4);
+    const cLines = doc.splitTextToSize(pr.criteria, pcCol - 4);
+    const rH = Math.max(tLines.length, cLines.length, 1) * 3.2 + 3;
+    checkPage(rH);
 
-    doc.setDrawColor(lightGray);
-    doc.rect(margin, y, cw, rowH, "S");
-    doc.line(margin + 35, y, margin + 35, y + rowH);
-    doc.line(margin + cw - 25, y, margin + cw - 25, y + rowH);
+    doc.rect(margin, y, ptCol, rH, "S");
+    doc.rect(margin + ptCol, y, pcCol, rH, "S");
+    doc.rect(margin + ptCol + pcCol, y, kcCol, rH, "S");
 
     doc.setFont("helvetica", "bold");
-    doc.setTextColor(darkGray);
-    doc.text(tLines, margin + 3, y + 4);
+    doc.text(tLines, margin + 2, y + 3.5);
     doc.setFont("helvetica", "normal");
-    doc.text(cLines, margin + 38, y + 4);
+    doc.text(cLines, margin + ptCol + 2, y + 3.5);
 
-    doc.setFontSize(6);
     if (pr.competent) {
-      doc.setTextColor("#16a34a");
-      doc.text("COMPETENT", margin + cw - 22, y + rowH / 2 + 1);
+      tick(margin + ptCol + pcCol + 4, y, rH);
     } else {
-      doc.setTextColor("#dc2626");
-      doc.text("NOT YET", margin + cw - 22, y + rowH / 2 + 1);
+      cross(margin + ptCol + pcCol + 4, y, rH);
     }
-    doc.setTextColor(darkGray);
-    y += rowH;
-  });
-  y += 4;
 
-  // === 5.0 ASSESSMENT OUTCOME ===
-  checkPage(35);
-  sectionHeader("5.0  ASSESSMENT OUTCOME");
-  doc.setDrawColor(lightGray);
-  doc.rect(margin, y, cw, 10, "S");
+    y += rH;
+  });
+  y += 3;
+
+  // ── 5.0 ASSESSMENT OUTCOME ──
+  checkPage(30);
+  doc.setFillColor(lightFill);
+  doc.rect(margin, y, cw, s1H, "FD");
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.text("5.0  ASSESSMENT OUTCOME", margin + 3, y + s1H / 2 + 1.5);
+  y += s1H;
 
   const isCompetent = data.overallOutcome === "Competent";
-  // Competent checkbox
-  doc.setDrawColor(medGray);
-  doc.rect(margin + 5, y + 3, 4, 4, "S");
-  if (isCompetent) {
-    doc.setFillColor("#22c55e");
-    doc.rect(margin + 5.5, y + 3.5, 3, 3, "F");
-  }
-  doc.setFontSize(8);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(darkGray);
-  doc.text("Competent", margin + 12, y + 7);
-  doc.setFontSize(6);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor(medGray);
-  doc.text("Employee is deemed competent in the safe operation of this task/equipment.", margin + 12, y + 10);
+  const outcomeH = 11;
 
-  // Not Yet Competent checkbox
-  doc.setDrawColor(medGray);
-  doc.rect(margin + cw / 2 + 5, y + 3, 4, 4, "S");
-  if (!isCompetent) {
-    doc.setFillColor("#ef4444");
-    doc.rect(margin + cw / 2 + 5.5, y + 3.5, 3, 3, "F");
+  // Competent row
+  doc.rect(margin, y, cw, outcomeH, "S");
+  // Checkbox
+  doc.rect(margin + 5, y + 2, 4, 4, "S");
+  if (isCompetent) {
+    doc.setFillColor("#000000");
+    doc.rect(margin + 5.5, y + 2.5, 3, 3, "F");
   }
   doc.setFontSize(8);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(darkGray);
-  doc.text("Not Yet Competent", margin + cw / 2 + 12, y + 7);
-  doc.setFontSize(6);
+  doc.text("Competent", margin + 12, y + 5.5);
+  doc.setFontSize(7);
   doc.setFont("helvetica", "normal");
-  doc.setTextColor(medGray);
-  doc.text("Further training required before competency can be confirmed.", margin + cw / 2 + 12, y + 10);
-  y += 12;
+  doc.text("- Employee is deemed competent in the safe operation of this task/equipment.", margin + 12, y + 9.5);
+  y += outcomeH;
+
+  // Not Yet Competent row
+  doc.rect(margin, y, cw, outcomeH, "S");
+  doc.rect(margin + 5, y + 2, 4, 4, "S");
+  if (!isCompetent) {
+    doc.setFillColor("#000000");
+    doc.rect(margin + 5.5, y + 2.5, 3, 3, "F");
+  }
+  doc.setFontSize(8);
+  doc.setFont("helvetica", "bold");
+  doc.text("Not Yet Competent", margin + 12, y + 5.5);
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "normal");
+  doc.text("- Further training required before competency can be confirmed.", margin + 12, y + 9.5);
+  y += outcomeH;
 
   // Assessor Comments
-  if (data.assessorComments) {
-    doc.setDrawColor(lightGray);
-    doc.rect(margin, y, cw, 14, "S");
-    doc.setFontSize(7);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(medGray);
-    doc.text("Assessor Comments:", margin + 3, y + 4);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(darkGray);
-    const commentLines = doc.splitTextToSize(data.assessorComments, cw - 10);
-    doc.text(commentLines, margin + 3, y + 8);
-    y += 16;
-  }
-  y += 2;
-
-  // === 6.0 SIGN-OFF ===
-  checkPage(50);
-  sectionHeader("6.0  SIGN-OFF");
-
-  const sigW = cw / 2 - 5;
-  const sigH = 28;
-
-  // Assessor sign-off
-  doc.setDrawColor(lightGray);
-  doc.rect(margin, y, sigW, sigH, "S");
+  const commH = 14;
+  doc.rect(margin, y, cw, commH, "S");
   doc.setFontSize(7);
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(medGray);
-  doc.text("Assessor", margin + 3, y + 4);
+  doc.text("Assessor Comments:", margin + 3, y + 4);
   doc.setFont("helvetica", "normal");
-  doc.setTextColor(darkGray);
-  doc.text(`Name: ${data.assessorName}`, margin + 3, y + 9);
-  doc.text(`Date: ${data.assessmentDate}`, margin + 3, y + 13);
+  if (data.assessorComments) {
+    const commentLines = doc.splitTextToSize(data.assessorComments, cw - 8);
+    doc.text(commentLines, margin + 3, y + 8);
+  }
+  y += commH + 3;
+
+  // ── 6.0 SIGN-OFF ──
+  checkPage(45);
+  doc.setFillColor(lightFill);
+  doc.rect(margin, y, cw, s1H, "FD");
+  doc.setFontSize(9);
+  doc.setFont("helvetica", "bold");
+  doc.text("6.0  SIGN-OFF", margin + 3, y + s1H / 2 + 1.5);
+  y += s1H;
+
+  // Sign-off table header
+  const nameColW = 55;
+  const sigColW = 70;
+  const dateColW = cw - nameColW - sigColW;
+
+  doc.setFillColor(lightFill);
+  doc.rect(margin, y, nameColW, thH, "FD");
+  doc.rect(margin + nameColW, y, sigColW, thH, "FD");
+  doc.rect(margin + nameColW + sigColW, y, dateColW, thH, "FD");
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "bold");
+  doc.text("Name", margin + 3, y + 4);
+  doc.text("Signature", margin + nameColW + 3, y + 4);
+  doc.text("Date", margin + nameColW + sigColW + 3, y + 4);
+  y += thH;
+
+  // Assessor row
+  const sigRowH = 18;
+  doc.rect(margin, y, nameColW, sigRowH, "S");
+  doc.rect(margin + nameColW, y, sigColW, sigRowH, "S");
+  doc.rect(margin + nameColW + sigColW, y, dateColW, sigRowH, "S");
+
+  doc.setFontSize(7);
+  doc.setFont("helvetica", "bold");
+  doc.text("Assessor:", margin + 2, y + 5);
+  doc.setFont("helvetica", "normal");
+  doc.text(data.assessorName, margin + 2, y + 10);
+
   if (data.assessorSignature) {
     try {
-      doc.addImage(data.assessorSignature, "PNG", margin + 3, y + 15, 40, 11);
-    } catch { /* signature image failed */ }
+      doc.addImage(data.assessorSignature, "PNG", margin + nameColW + 3, y + 2, 40, 14);
+    } catch { /* sig failed */ }
   }
 
-  // Employee sign-off
-  doc.rect(margin + sigW + 10, y, sigW, sigH, "S");
+  doc.text(data.assessmentDate, margin + nameColW + sigColW + 3, y + 10);
+  y += sigRowH;
+
+  // Employee row
+  doc.rect(margin, y, nameColW, sigRowH, "S");
+  doc.rect(margin + nameColW, y, sigColW, sigRowH, "S");
+  doc.rect(margin + nameColW + sigColW, y, dateColW, sigRowH, "S");
+
   doc.setFont("helvetica", "bold");
-  doc.setTextColor(medGray);
-  doc.text("Employee", margin + sigW + 13, y + 4);
+  doc.text("Employee:", margin + 2, y + 5);
   doc.setFont("helvetica", "normal");
-  doc.setTextColor(darkGray);
-  doc.text(`Name: ${data.employeeName}`, margin + sigW + 13, y + 9);
-  doc.text(`Date: ${data.assessmentDate}`, margin + sigW + 13, y + 13);
+  doc.text(data.employeeName, margin + 2, y + 10);
+
   if (data.employeeSignature) {
     try {
-      doc.addImage(data.employeeSignature, "PNG", margin + sigW + 13, y + 15, 40, 11);
-    } catch { /* signature image failed */ }
+      doc.addImage(data.employeeSignature, "PNG", margin + nameColW + 3, y + 2, 40, 14);
+    } catch { /* sig failed */ }
   }
-  y += sigH + 6;
+
+  doc.text(data.assessmentDate, margin + nameColW + sigColW + 3, y + 10);
+  y += sigRowH;
+
+  // Bottom border
+  doc.setFillColor("#000000");
+  doc.rect(margin, y, cw, 0.8, "F");
 
   // Footer
   doc.setFontSize(6);
-  doc.setTextColor("#999999");
+  doc.setTextColor("#888888");
   doc.text(
-    "Generated by Thornton Engineering OH&S Management System",
+    `Thornton Engineering  |  ${data.documentNumber}  |  Verification of Competency  |  ${data.assessmentDate}`,
     pw / 2,
-    290,
-    { align: "center" }
-  );
-  doc.text(
-    `${data.documentNumber}  |  ${data.assessmentDate}`,
-    pw / 2,
-    294,
+    292,
     { align: "center" }
   );
 

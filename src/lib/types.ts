@@ -22,6 +22,7 @@ export interface Employee {
   emergency_contact_phone: string;
   notes: string;
   photo_url?: string;
+  manager_id?: string;
 }
 
 export interface Task {
@@ -462,4 +463,31 @@ export interface CompanyPolicy {
   file_url: string;
   active: boolean;
   sort_order: number;
+}
+
+// === LEAVE REQUESTS ===
+export type LeaveType =
+  | 'Annual Leave'
+  | 'Personal/Sick Leave'
+  | 'Long Service Leave'
+  | 'Unpaid Leave'
+  | 'Compassionate Leave'
+  | 'Parental Leave';
+
+export type LeaveRequestStatus = 'Pending' | 'Approved' | 'Rejected';
+
+export interface LeaveRequest {
+  id: string;
+  employee_id: string;
+  employee_name: string;
+  leave_type: LeaveType;
+  start_date: string;
+  end_date: string;
+  reason: string;
+  status: LeaveRequestStatus;
+  manager_id?: string;
+  approved_by?: string;
+  approved_date?: string;
+  approval_token?: string;
+  created_at?: string;
 }

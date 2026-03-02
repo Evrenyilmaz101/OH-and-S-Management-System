@@ -126,6 +126,7 @@ const ALL_TABLES_ORDERED = [
   'incidents',
   'inspections',
   'toolbox_talks',
+  'leave_requests',
   'documents',
   'swms',
   'risk_assessments',

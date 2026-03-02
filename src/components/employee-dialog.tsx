@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import type { Employee, EmploymentType, EmployeeStatus, RoleDefinition } from "@/lib/types";
 import { generateId } from "@/lib/utils";
 import { getRoles } from "@/lib/store/roles";
+import { getEmployees } from "@/lib/store/employees";
 
 interface EmployeeDialogProps {
   open: boolean;
@@ -40,13 +41,15 @@ const emptyEmployee: Omit<Employee, "id"> = {
 export function EmployeeDialog({ open, onOpenChange, employee, onSave }: EmployeeDialogProps) {
   const [form, setForm] = useState(emptyEmployee);
   const [roles, setRoles] = useState<RoleDefinition[]>([]);
+  const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
 
   useEffect(() => {
-    async function loadRoles() {
-      const allRoles = await getRoles();
+    async function loadData() {
+      const [allRoles, emps] = await Promise.all([getRoles(), getEmployees()]);
       setRoles(allRoles.filter(r => r.active));
+      setAllEmployees(emps);
     }
-    loadRoles();
+    loadData();
   }, [open]);
 
   useEffect(() => {
@@ -138,6 +141,24 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSave }: Employe
               {roles.map(r => (
                 <option key={r.id} value={r.id}>{r.name}</option>
               ))}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="manager_id">Manager / Supervisor</Label>
+            <select
+              id="manager_id"
+              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              value={form.manager_id || ""}
+              onChange={(e) => setForm({ ...form, manager_id: e.target.value || undefined })}
+            >
+              <option value="">No manager assigned</option>
+              {allEmployees
+                .filter((emp) => emp.id !== employee?.id && emp.status === "Active")
+                .map((emp) => (
+                  <option key={emp.id} value={emp.id}>
+                    {emp.first_name} {emp.last_name} — {emp.role}
+                  </option>
+                ))}
             </select>
           </div>
           <div className="grid grid-cols-2 gap-4">

@@ -71,6 +71,9 @@ const statusStyles: Record<string, string> = {
   Submitted: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
   "N/A": "bg-zinc-500/10 text-zinc-500 border-zinc-500/20",
   // Induction (Pending already defined above in Registration section)
+  // Leave
+  Approved: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
+  Rejected: "bg-red-500/10 text-red-500 border-red-500/20",
   // Incident Types
   "Near Miss": "bg-amber-500/10 text-amber-500 border-amber-500/20",
   "First Aid": "bg-blue-500/10 text-blue-500 border-blue-500/20",

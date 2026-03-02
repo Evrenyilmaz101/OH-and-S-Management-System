@@ -34,6 +34,9 @@ export {
 // Company policies
 export { getCompanyPolicies, getCompanyPolicy, addCompanyPolicy, updateCompanyPolicy, deleteCompanyPolicy } from './company-policies';
 
+// Leave requests
+export { getLeaveRequests, getLeaveRequestByToken, addLeaveRequest, updateLeaveRequest } from './leave-requests';
+
 // Compliance engine
 export { getEmployeeCompliance, getAllEmployeeCompliance, computeCompliance } from './compliance-engine';
 export type { ComplianceStatus } from './compliance-engine';

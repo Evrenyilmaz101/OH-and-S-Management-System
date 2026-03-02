@@ -13,6 +13,7 @@ import {
   Library,
   ClipboardCheck,
   Database,
+  Calendar,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -39,6 +40,7 @@ const navGroups: NavGroup[] = [
     label: "PERSONNEL",
     items: [
       { href: "/personnel", label: "Employee Files", icon: Users },
+      { href: "/leave", label: "Leave", icon: Calendar },
     ],
   },
   {

@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/sidebar";
 import { CommandSearch } from "@/components/command-search";
 
-const PUBLIC_ROUTES = ["/login", "/auth"];
+const PUBLIC_ROUTES = ["/login", "/auth", "/leave/approve"];
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();

@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
-import { Plus, Search, ClipboardCheck } from "lucide-react";
+import { Plus, Search, ClipboardCheck, FileDown, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,24 +29,34 @@ import {
   getTasks,
   addVOCRecord,
   updateVOCRecord,
+  getDocuments,
 } from "@/lib/store/index";
+import { getDocumentFileUrl } from "@/lib/store/document-storage";
 import { formatDate, getExpiryStatus, generateId } from "@/lib/utils";
-import type { VOCRecord, Employee, Task, VOCStatus } from "@/lib/types";
+import type { VOCRecord, Employee, Task, VOCStatus, Document } from "@/lib/types";
 
 export default function VOCPage() {
   const [vocRecords, setVocRecords] = useState<VOCRecord[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [documents, setDocuments] = useState<Document[]>([]);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<VOCStatus | "All">("All");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<VOCRecord | null>(null);
 
   const loadData = async () => {
-    const [vocRecords, employees, tasks] = await Promise.all([getVOCRecords(), getEmployees(), getTasks()]);
+    const [vocRecords, employees, tasks, docs] = await Promise.all([
+      getVOCRecords(),
+      getEmployees(),
+      getTasks(),
+      getDocuments(),
+    ]);
     setVocRecords(vocRecords);
     setEmployees(employees);
     setTasks(tasks);
+    // Filter to only VOC Verification documents
+    setDocuments(docs.filter((d) => d.category === "VOC Verification"));
   };
 
   useEffect(() => {
@@ -60,6 +70,24 @@ export default function VOCPage() {
 
   const getTaskName = (id: string) => {
     return tasks.find((t) => t.id === id)?.name || "Unknown";
+  };
+
+  // Find the VOC Verification document for a given employee+task
+  const getVocDoc = (employeeId: string, taskId: string): Document | undefined => {
+    return documents.find(
+      (d) =>
+        d.related_entity_id === taskId &&
+        d.related_entity_type === "voc_item" &&
+        d.tags?.includes(`emp:${employeeId}`)
+    );
+  };
+
+  const handleViewPdf = async (doc: Document) => {
+    if (!doc.file_url) return;
+    const url = await getDocumentFileUrl(doc.file_url);
+    if (url) {
+      window.open(url, "_blank");
+    }
   };
 
   const filtered = useMemo(() => {
@@ -91,7 +119,7 @@ export default function VOCPage() {
   return (
     <div className="p-6 lg:p-10 max-w-7xl mx-auto">
       <PageHeader
-        title="VOC Records"
+        title="VOC Assessment"
         description="Verification of Competency assessments — auto 2-year expiry"
       >
         <div className="flex gap-2">
@@ -166,48 +194,66 @@ export default function VOCPage() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  filtered.map((voc) => (
-                    <TableRow key={voc.id}>
-                      <TableCell className="font-medium text-sm">
-                        <Link
-                          href={`/personnel/${voc.employee_id}`}
-                          className="hover:underline"
-                        >
-                          {getEmployeeName(voc.employee_id)}
-                        </Link>
-                      </TableCell>
-                      <TableCell className="text-sm">
-                        {getTaskName(voc.task_id)}
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge status={voc.status} />
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {formatDate(voc.assessed_date)}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {voc.assessed_by}
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {formatDate(voc.expiry_date)}
-                      </TableCell>
-                      <TableCell>
-                        <StatusBadge status={getExpiryStatus(voc.expiry_date)} />
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => {
-                            setEditing(voc);
-                            setDialogOpen(true);
-                          }}
-                        >
-                          Edit
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))
+                  filtered.map((voc) => {
+                    const vocDoc = getVocDoc(voc.employee_id, voc.task_id);
+                    return (
+                      <TableRow key={voc.id}>
+                        <TableCell className="font-medium text-sm">
+                          <Link
+                            href={`/personnel/${voc.employee_id}`}
+                            className="hover:underline"
+                          >
+                            {getEmployeeName(voc.employee_id)}
+                          </Link>
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {getTaskName(voc.task_id)}
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge status={voc.status} />
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {formatDate(voc.assessed_date)}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {voc.assessed_by}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {formatDate(voc.expiry_date)}
+                        </TableCell>
+                        <TableCell>
+                          <StatusBadge status={getExpiryStatus(voc.expiry_date)} />
+                        </TableCell>
+                        <TableCell className="text-right">
+                          <div className="flex items-center justify-end gap-1">
+                            {vocDoc && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 px-2 text-xs gap-1 text-amber-400 hover:text-amber-300"
+                                onClick={() => handleViewPdf(vocDoc)}
+                                title="View/Download PDF"
+                              >
+                                <FileDown className="w-3.5 h-3.5" />
+                                PDF
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="h-7 px-2"
+                              onClick={() => {
+                                setEditing(voc);
+                                setDialogOpen(true);
+                              }}
+                            >
+                              <Pencil className="w-3.5 h-3.5" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })
                 )}
               </TableBody>
             </Table>

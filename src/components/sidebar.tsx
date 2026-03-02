@@ -6,14 +6,13 @@ import { useState } from "react";
 import {
   LayoutDashboard,
   Users,
-  Settings,
   Menu,
   X,
   HardHat,
   ChevronDown,
   Library,
   ClipboardCheck,
-  FileText,
+  Database,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -45,8 +44,7 @@ const navGroups: NavGroup[] = [
   {
     label: "COMPETENCY",
     items: [
-      { href: "/voc", label: "VOC Records", icon: ClipboardCheck },
-      { href: "/voc/templates", label: "VOC Templates", icon: FileText },
+      { href: "/voc", label: "VOC Assessment", icon: ClipboardCheck },
     ],
   },
   {
@@ -58,7 +56,7 @@ const navGroups: NavGroup[] = [
   {
     label: "SYSTEM",
     items: [
-      { href: "/settings", label: "Settings", icon: Settings },
+      { href: "/settings", label: "Data Hub", icon: Database },
     ],
   },
 ];

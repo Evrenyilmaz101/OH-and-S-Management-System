@@ -135,7 +135,7 @@ const ALL_TABLES_ORDERED = [
   'emergency_info',
   'employees',
   'induction_templates',
-  'voc_templates',
+  'voc_assessment_templates',
   'document_templates',
   'company_policies',
   'tasks',

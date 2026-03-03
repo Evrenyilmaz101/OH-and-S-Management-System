@@ -21,6 +21,7 @@ interface EmployeeDialogProps {
   onOpenChange: (open: boolean) => void;
   employee?: Employee | null;
   onSave: (employee: Employee) => void;
+  defaultWorkshopId?: string | null;
 }
 
 const emptyEmployee: Omit<Employee, "id"> = {
@@ -39,7 +40,7 @@ const emptyEmployee: Omit<Employee, "id"> = {
   notes: "",
 };
 
-export function EmployeeDialog({ open, onOpenChange, employee, onSave }: EmployeeDialogProps) {
+export function EmployeeDialog({ open, onOpenChange, employee, onSave, defaultWorkshopId }: EmployeeDialogProps) {
   const [form, setForm] = useState(emptyEmployee);
   const [roles, setRoles] = useState<RoleDefinition[]>([]);
   const [managers, setManagersList] = useState<Manager[]>([]);
@@ -61,9 +62,9 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSave }: Employe
       void id;
       setForm(rest);
     } else {
-      setForm(emptyEmployee);
+      setForm({ ...emptyEmployee, workshop_id: defaultWorkshopId || undefined });
     }
-  }, [employee, open]);
+  }, [employee, open, defaultWorkshopId]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

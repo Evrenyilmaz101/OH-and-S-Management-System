@@ -253,6 +253,7 @@ export default function PersonnelPage() {
         onOpenChange={setDialogOpen}
         employee={editingEmployee}
         onSave={handleSave}
+        defaultWorkshopId={selectedWorkshopId}
       />
     </div>
   );

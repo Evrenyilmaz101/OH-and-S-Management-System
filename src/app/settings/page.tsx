@@ -473,15 +473,15 @@ export default function DataHubPage() {
         </div>
       </CollapsibleSection>
 
-      {/* Managers */}
+      {/* Managers & Supervisors */}
       <CollapsibleSection
         icon={<UserCog className="w-3.5 h-3.5" />}
         iconColor="text-violet-400"
-        title="Managers"
-        subtitle="Supervisors for leave approvals and employee oversight"
+        title="Managers & Supervisors"
+        subtitle="Managers and supervisors for leave approvals and employee oversight"
         headerRight={
           <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={handleAddManager}>
-            <Plus className="w-3 h-3" /> Add Manager
+            <Plus className="w-3 h-3" /> Add
           </Button>
         }
       >
@@ -490,6 +490,7 @@ export default function DataHubPage() {
             <TableHeader>
               <TableRow>
                 <TableHead className="text-[10px] uppercase tracking-wider">Name</TableHead>
+                <TableHead className="text-[10px] uppercase tracking-wider">Type</TableHead>
                 <TableHead className="text-[10px] uppercase tracking-wider">Email</TableHead>
                 <TableHead className="text-[10px] uppercase tracking-wider">Workshop</TableHead>
                 <TableHead className="text-[10px] uppercase tracking-wider">Status</TableHead>
@@ -498,12 +499,13 @@ export default function DataHubPage() {
             </TableHeader>
             <TableBody>
               {managers.length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No managers configured</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">No managers or supervisors configured</TableCell></TableRow>
               ) : managers.map((m) => {
                 const ws = workshops.find((w) => w.id === m.workshop_id);
                 return (
                   <TableRow key={m.id}>
                     <TableCell className="text-sm font-medium">{m.name}</TableCell>
+                    <TableCell><StatusBadge status={m.type || "Manager"} /></TableCell>
                     <TableCell className="text-xs text-muted-foreground">{m.email}</TableCell>
                     <TableCell className="text-xs">{ws ? `${ws.code} — ${ws.name}` : "\u2014"}</TableCell>
                     <TableCell><StatusBadge status={m.active ? "Active" : "Inactive"} /></TableCell>

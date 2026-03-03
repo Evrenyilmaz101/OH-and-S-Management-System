@@ -74,6 +74,10 @@ const statusStyles: Record<string, string> = {
   // Leave
   Approved: "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
   Rejected: "bg-red-500/10 text-red-500 border-red-500/20",
+  Escalated: "bg-orange-500/10 text-orange-500 border-orange-500/20",
+  // Manager types
+  Supervisor: "bg-blue-500/10 text-blue-400 border-blue-500/20",
+  Manager: "bg-violet-500/10 text-violet-400 border-violet-500/20",
   // Incident Types
   "Near Miss": "bg-amber-500/10 text-amber-500 border-amber-500/20",
   "First Aid": "bg-blue-500/10 text-blue-500 border-blue-500/20",

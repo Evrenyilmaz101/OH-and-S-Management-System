@@ -47,7 +47,7 @@ export type { ComplianceStatus } from './compliance-engine';
 export { getWorkshops, getWorkshop, addWorkshop, updateWorkshop, deleteWorkshop } from './workshops';
 
 // Managers
-export { getManagers, getManager, getManagersByWorkshop, addManager, updateManager, deleteManager } from './managers';
+export { getManagers, getManager, getManagersByWorkshop, getWorkshopManager, addManager, updateManager, deleteManager } from './managers';
 
 // User profiles
 export { getUserProfiles, getUserProfile, getUserProfileByAuthId, addUserProfile, updateUserProfile } from './user-profiles';

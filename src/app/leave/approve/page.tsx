@@ -10,13 +10,23 @@ import { toast } from "sonner";
 import { createClient } from "@/lib/supabase/client";
 import type { LeaveRequest } from "@/lib/types";
 
+interface Approver {
+  name: string;
+  type: string;
+  workshop_id?: string;
+}
+
 function ApprovalContent() {
   const searchParams = useSearchParams();
   const token = searchParams.get("token");
   const [lr, setLr] = useState<LeaveRequest | null>(null);
+  const [approver, setApprover] = useState<Approver | null>(null);
   const [loading, setLoading] = useState(true);
   const [actioning, setActioning] = useState(false);
   const [done, setDone] = useState(false);
+  const [escalationNotes, setEscalationNotes] = useState("");
+
+  const isSupervisor = approver?.type === "Supervisor";
 
   useEffect(() => {
     async function load() {
@@ -28,6 +38,17 @@ function ApprovalContent() {
         .eq("approval_token", token)
         .single();
       setLr(data);
+
+      // Load the approver to check if they're a Supervisor
+      if (data?.manager_id) {
+        const { data: mgr } = await supabase
+          .from("managers")
+          .select("name, type, workshop_id")
+          .eq("id", data.manager_id)
+          .single();
+        if (mgr) setApprover(mgr);
+      }
+
       setLoading(false);
     }
     load();
@@ -39,23 +60,14 @@ function ApprovalContent() {
 
     const supabase = createClient();
     const now = new Date().toISOString();
-
-    // Fetch manager name
-    const { data: manager } = await supabase
-      .from("managers")
-      .select("name")
-      .eq("id", lr.manager_id)
-      .single();
-
-    const managerName = manager?.name || "Manager";
-
+    const approverName = approver?.name || "Manager";
     const newStatus = approved ? "Approved" : "Rejected";
 
     await supabase
       .from("leave_requests")
       .update({
         status: newStatus,
-        approved_by: managerName,
+        approved_by: approverName,
         approved_date: now,
       })
       .eq("id", lr.id);
@@ -73,10 +85,66 @@ function ApprovalContent() {
       }
     }
 
-    setLr({ ...lr, status: newStatus as LeaveRequest["status"], approved_by: managerName });
+    setLr({ ...lr, status: newStatus as LeaveRequest["status"], approved_by: approverName });
     setActioning(false);
     setDone(true);
     toast.success(approved ? "Leave approved — HR has been notified" : "Leave rejected");
+  }
+
+  async function handleEscalate() {
+    if (!lr || !approver) return;
+    setActioning(true);
+
+    const supabase = createClient();
+
+    // Find the workshop's Manager
+    const { data: workshopManager } = await supabase
+      .from("managers")
+      .select("id, name, email, workshop_id")
+      .eq("workshop_id", approver.workshop_id)
+      .eq("type", "Manager")
+      .eq("active", true)
+      .limit(1)
+      .single();
+
+    if (!workshopManager) {
+      toast.error("No active manager found for this workshop. Cannot escalate.");
+      setActioning(false);
+      return;
+    }
+
+    // Generate a new approval token for the manager
+    const newToken = crypto.randomUUID();
+
+    // Update the leave request: set status to Escalated, record escalation info, new token
+    await supabase
+      .from("leave_requests")
+      .update({
+        status: "Escalated",
+        escalated_to: workshopManager.id,
+        escalated_by: approver.name,
+        escalation_notes: escalationNotes || null,
+        escalated_date: new Date().toISOString(),
+        manager_id: workshopManager.id,
+        approval_token: newToken,
+      })
+      .eq("id", lr.id);
+
+    // Send escalation email to manager
+    try {
+      await fetch("/api/leave/escalate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ leaveRequestId: lr.id }),
+      });
+    } catch {
+      console.error("Failed to send escalation email");
+    }
+
+    setLr({ ...lr, status: "Escalated" as LeaveRequest["status"] });
+    setActioning(false);
+    setDone(true);
+    toast.success("Leave request escalated to Manager");
   }
 
   if (loading) {
@@ -127,6 +195,8 @@ function ApprovalContent() {
             {lr.reason && <DetailRow label="Reason" value={lr.reason} />}
             <DetailRow label="Status" value={lr.status} />
             {lr.approved_by && <DetailRow label="Actioned By" value={lr.approved_by} />}
+            {lr.escalated_by && <DetailRow label="Escalated By" value={lr.escalated_by} />}
+            {lr.escalation_notes && <DetailRow label="Escalation Notes" value={lr.escalation_notes} />}
           </div>
 
           {done ? (
@@ -135,6 +205,8 @@ function ApprovalContent() {
               <p className="text-sm text-emerald-400">
                 {lr.status === "Approved"
                   ? "Leave approved. HR has been notified for filing."
+                  : lr.status === "Escalated"
+                  ? "Leave escalated to Manager for review."
                   : "Leave rejected. The employee will be informed."}
               </p>
             </div>
@@ -146,22 +218,50 @@ function ApprovalContent() {
               </p>
             </div>
           ) : (
-            <div className="flex gap-3 pt-2">
-              <Button
-                className="flex-1"
-                disabled={actioning}
-                onClick={() => handleAction(true)}
-              >
-                {actioning ? "Processing..." : "Approve"}
-              </Button>
-              <Button
-                variant="outline"
-                className="flex-1 border-red-500/30 text-red-400 hover:bg-red-500/10"
-                disabled={actioning}
-                onClick={() => handleAction(false)}
-              >
-                Reject
-              </Button>
+            <div className="space-y-4">
+              {/* Escalation notes — only for supervisors */}
+              {isSupervisor && (
+                <div className="space-y-2">
+                  <label className="text-xs text-muted-foreground uppercase tracking-wider">
+                    Notes (optional — visible to Manager if escalated)
+                  </label>
+                  <textarea
+                    rows={2}
+                    className="flex w-full rounded-md border border-input bg-background px-3 py-2 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring resize-none"
+                    placeholder="e.g. Extended leave — escalating for Manager approval"
+                    value={escalationNotes}
+                    onChange={(e) => setEscalationNotes(e.target.value)}
+                  />
+                </div>
+              )}
+
+              <div className="flex gap-3">
+                <Button
+                  className="flex-1"
+                  disabled={actioning}
+                  onClick={() => handleAction(true)}
+                >
+                  {actioning ? "Processing..." : "Approve"}
+                </Button>
+                {isSupervisor && (
+                  <Button
+                    variant="outline"
+                    className="flex-1 border-orange-500/30 text-orange-400 hover:bg-orange-500/10"
+                    disabled={actioning}
+                    onClick={() => handleEscalate()}
+                  >
+                    Escalate
+                  </Button>
+                )}
+                <Button
+                  variant="outline"
+                  className="flex-1 border-red-500/30 text-red-400 hover:bg-red-500/10"
+                  disabled={actioning}
+                  onClick={() => handleAction(false)}
+                >
+                  Reject
+                </Button>
+              </div>
             </div>
           )}
         </CardContent>

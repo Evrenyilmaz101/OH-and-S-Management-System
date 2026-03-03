@@ -481,7 +481,7 @@ export type LeaveType =
   | 'Compassionate Leave'
   | 'Parental Leave';
 
-export type LeaveRequestStatus = 'Pending' | 'Approved' | 'Rejected';
+export type LeaveRequestStatus = 'Pending' | 'Approved' | 'Rejected' | 'Escalated';
 
 export interface LeaveRequest {
   id: string;
@@ -496,6 +496,10 @@ export interface LeaveRequest {
   approved_by?: string;
   approved_date?: string;
   approval_token?: string;
+  escalated_to?: string;
+  escalated_by?: string;
+  escalation_notes?: string;
+  escalated_date?: string;
   created_at?: string;
 }
 
@@ -511,11 +515,14 @@ export interface Workshop {
 }
 
 // === MANAGERS ===
+export type ManagerType = 'Manager' | 'Supervisor';
+
 export interface Manager {
   id: string;
   name: string;
   email: string;
   workshop_id?: string;
+  type: ManagerType;
   active: boolean;
   created_at?: string;
   updated_at?: string;

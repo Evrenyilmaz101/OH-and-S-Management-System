@@ -173,11 +173,24 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSave, defaultWo
                 onChange={(e) => setForm({ ...form, manager_id: e.target.value || undefined })}
               >
                 <option value="">No manager assigned</option>
-                {managers.map((mgr) => (
-                  <option key={mgr.id} value={mgr.id}>
-                    {mgr.name} — {mgr.email}
-                  </option>
-                ))}
+                {managers.some(m => m.type === 'Supervisor') && (
+                  <optgroup label="Supervisors">
+                    {managers.filter(m => m.type === 'Supervisor').map((mgr) => (
+                      <option key={mgr.id} value={mgr.id}>
+                        {mgr.name} — {mgr.email}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
+                {managers.some(m => m.type === 'Manager' || !m.type) && (
+                  <optgroup label="Managers">
+                    {managers.filter(m => m.type === 'Manager' || !m.type).map((mgr) => (
+                      <option key={mgr.id} value={mgr.id}>
+                        {mgr.name} — {mgr.email}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
               </select>
             </div>
           </div>

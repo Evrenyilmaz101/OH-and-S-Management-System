@@ -10,54 +10,64 @@ export async function POST(request: NextRequest) {
     }
     const resend = new Resend(apiKey);
     const { leaveRequestId } = await request.json();
-    const hrEmail = process.env.HR_EMAIL;
-
-    if (!hrEmail) {
-      return NextResponse.json({ error: 'HR email not configured' }, { status: 500 });
-    }
-
     const supabase = await createClient();
 
-    const { data: lr, error } = await supabase
+    const { data: lr, error: lrError } = await supabase
       .from('leave_requests')
       .select('*')
       .eq('id', leaveRequestId)
       .single();
 
-    if (error || !lr) {
+    if (lrError || !lr) {
       return NextResponse.json({ error: 'Leave request not found' }, { status: 404 });
     }
 
+    // Fetch the manager this was escalated to
+    const { data: manager } = await supabase
+      .from('managers')
+      .select('name, email')
+      .eq('id', lr.manager_id)
+      .single();
+
+    if (!manager?.email) {
+      return NextResponse.json({ error: 'Manager not found or has no email' }, { status: 400 });
+    }
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+    const approvalUrl = `${appUrl}/leave/approve?token=${lr.approval_token}`;
+
     const { error: emailError } = await resend.emails.send({
       from: process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev',
-      to: hrEmail,
-      subject: `Leave Approved — ${lr.employee_name} — For Filing`,
+      to: manager.email,
+      subject: `ESCALATED: Leave Application — ${lr.employee_name}`,
       html: `
-        <h2>Approved Leave Application — For Filing</h2>
-        <p>The following leave application has been <strong>approved by management</strong> and is ready for filing:</p>
+        <h2 style="color:#ea580c;">Escalated Leave Application — Requires Your Approval</h2>
+        <p>This leave application has been <strong>escalated by ${lr.escalated_by || 'Supervisor'}</strong> for your review:</p>
         <table style="border-collapse:collapse; margin:16px 0;">
           <tr><td style="padding:4px 12px; font-weight:bold;">Employee:</td><td style="padding:4px 12px;">${lr.employee_name}</td></tr>
           <tr><td style="padding:4px 12px; font-weight:bold;">Leave Type:</td><td style="padding:4px 12px;">${lr.leave_type}</td></tr>
           <tr><td style="padding:4px 12px; font-weight:bold;">From:</td><td style="padding:4px 12px;">${lr.start_date}</td></tr>
           <tr><td style="padding:4px 12px; font-weight:bold;">To:</td><td style="padding:4px 12px;">${lr.end_date}</td></tr>
           <tr><td style="padding:4px 12px; font-weight:bold;">Reason:</td><td style="padding:4px 12px;">${lr.reason || 'N/A'}</td></tr>
-          <tr><td style="padding:4px 12px; font-weight:bold;">Approved By:</td><td style="padding:4px 12px;">${lr.approved_by || 'N/A'}</td></tr>
-          <tr><td style="padding:4px 12px; font-weight:bold;">Approved Date:</td><td style="padding:4px 12px;">${lr.approved_date || 'N/A'}</td></tr>
-          ${lr.escalated_by ? `<tr><td style="padding:4px 12px; font-weight:bold;">Escalated By:</td><td style="padding:4px 12px;">${lr.escalated_by}</td></tr>` : ''}
-          ${lr.escalation_notes ? `<tr><td style="padding:4px 12px; font-weight:bold;">Escalation Notes:</td><td style="padding:4px 12px;">${lr.escalation_notes}</td></tr>` : ''}
+          <tr><td style="padding:4px 12px; font-weight:bold;">Escalated By:</td><td style="padding:4px 12px;">${lr.escalated_by || 'N/A'}</td></tr>
+          ${lr.escalation_notes ? `<tr><td style="padding:4px 12px; font-weight:bold;">Supervisor Notes:</td><td style="padding:4px 12px;">${lr.escalation_notes}</td></tr>` : ''}
         </table>
-        <p style="color:#666; font-size:13px;">This is an automated notification from the Thornton OH&amp;S Management System.</p>
+        <p>Please review and action this request:</p>
+        <a href="${approvalUrl}" style="display:inline-block; padding:12px 24px; background:#f59e0b; color:#000; text-decoration:none; border-radius:6px; font-weight:bold;">
+          Review &amp; Approve
+        </a>
+        <p style="margin-top:16px; color:#666; font-size:13px;">Or copy this link: ${approvalUrl}</p>
       `,
     });
 
     if (emailError) {
-      console.error('[api/leave/notify-hr] Email error:', emailError);
+      console.error('[api/leave/escalate] Email error:', emailError);
       return NextResponse.json({ error: 'Failed to send email' }, { status: 500 });
     }
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error('[api/leave/notify-hr] Error:', err);
+    console.error('[api/leave/escalate] Error:', err);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

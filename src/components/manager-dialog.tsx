@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import type { Manager, Workshop } from "@/lib/types";
+import type { Manager, ManagerType, Workshop } from "@/lib/types";
 import { generateId } from "@/lib/utils";
 
 interface ManagerDialogProps {
@@ -25,6 +25,7 @@ interface ManagerDialogProps {
 const emptyManager: Omit<Manager, "id"> = {
   name: "",
   email: "",
+  type: "Supervisor",
   workshop_id: undefined,
   active: true,
 };
@@ -55,7 +56,7 @@ export function ManagerDialog({ open, onOpenChange, manager, workshops, onSave }
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[460px]">
         <DialogHeader>
-          <DialogTitle>{manager ? "Edit Manager" : "Add Manager"}</DialogTitle>
+          <DialogTitle>{manager ? "Edit" : "Add"} {form.type || "Supervisor"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4 mt-2">
           <div className="space-y-2">
@@ -74,26 +75,40 @@ export function ManagerDialog({ open, onOpenChange, manager, workshops, onSave }
               id="email"
               type="email"
               required
-              placeholder="manager@company.com"
+              placeholder="name@company.com"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="workshop_id">Workshop</Label>
-            <select
-              id="workshop_id"
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              value={form.workshop_id || ""}
-              onChange={(e) => setForm({ ...form, workshop_id: e.target.value || undefined })}
-            >
-              <option value="">No workshop assigned</option>
-              {workshops.filter((w) => w.active).map((w) => (
-                <option key={w.id} value={w.id}>
-                  {w.code} — {w.name}
-                </option>
-              ))}
-            </select>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="type">Type</Label>
+              <select
+                id="type"
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                value={form.type}
+                onChange={(e) => setForm({ ...form, type: e.target.value as ManagerType })}
+              >
+                <option value="Supervisor">Supervisor</option>
+                <option value="Manager">Manager</option>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="workshop_id">Workshop</Label>
+              <select
+                id="workshop_id"
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                value={form.workshop_id || ""}
+                onChange={(e) => setForm({ ...form, workshop_id: e.target.value || undefined })}
+              >
+                <option value="">No workshop assigned</option>
+                {workshops.filter((w) => w.active).map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.code} — {w.name}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             <Switch
@@ -108,7 +123,7 @@ export function ManagerDialog({ open, onOpenChange, manager, workshops, onSave }
               Cancel
             </Button>
             <Button type="submit">
-              {manager ? "Save Changes" : "Add Manager"}
+              {manager ? "Save Changes" : `Add ${form.type}`}
             </Button>
           </div>
         </form>

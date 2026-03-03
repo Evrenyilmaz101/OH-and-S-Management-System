@@ -19,12 +19,14 @@ import { StatusBadge } from "@/components/status-badge";
 import { EmployeeDialog } from "@/components/employee-dialog";
 import {
   getEmployees,
+  getEmployeesByWorkshop,
   updateEmployee,
   createEmployeeWithOnboarding,
 } from "@/lib/store/index";
 import { getAllEmployeeCompliance } from "@/lib/store/compliance-engine";
 import { formatDate } from "@/lib/utils";
 import { toast } from "sonner";
+import { useAuth } from "@/components/store-provider";
 import type { Employee, EmploymentType, EmployeeStatus } from "@/lib/types";
 import type { ComplianceStatus } from "@/lib/store/compliance-engine";
 
@@ -35,6 +37,7 @@ function getComplianceColor(pct: number): string {
 }
 
 export default function PersonnelPage() {
+  const { selectedWorkshopId } = useAuth();
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [complianceMap, setComplianceMap] = useState<
     Map<string, ComplianceStatus>
@@ -49,7 +52,7 @@ export default function PersonnelPage() {
 
   const loadData = async () => {
     const [emps, complianceList] = await Promise.all([
-      getEmployees(),
+      selectedWorkshopId ? getEmployeesByWorkshop(selectedWorkshopId) : getEmployees(),
       getAllEmployeeCompliance(),
     ]);
     setEmployees(emps);
@@ -60,7 +63,7 @@ export default function PersonnelPage() {
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [selectedWorkshopId]);
 
   const filtered = useMemo(() => {
     return employees.filter((e) => {

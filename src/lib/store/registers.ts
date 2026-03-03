@@ -54,3 +54,11 @@ export async function deleteEmergencyInfo(id: string): Promise<boolean> { return
 export async function getFirstAidByPerson(employeeId: string): Promise<FirstAidEntry[]> {
   return getFiltered<FirstAidEntry>(TABLE_FIRSTAID, 'injured_person_id', employeeId);
 }
+
+// Workshop-scoped queries
+export async function getPlantEquipmentByWorkshop(workshopId: string): Promise<PlantEquipment[]> { return getFiltered<PlantEquipment>(TABLE_PLANT, 'workshop_id', workshopId); }
+export async function getHazardousSubstancesByWorkshop(workshopId: string): Promise<HazardousSubstance[]> { return getFiltered<HazardousSubstance>(TABLE_HAZARDOUS, 'workshop_id', workshopId); }
+export async function getPPERecordsByWorkshop(workshopId: string): Promise<PPERecord[]> { return getFiltered<PPERecord>(TABLE_PPE, 'workshop_id', workshopId); }
+export async function getFirstAidByWorkshop(workshopId: string): Promise<FirstAidEntry[]> { return getFiltered<FirstAidEntry>(TABLE_FIRSTAID, 'workshop_id', workshopId); }
+export async function getInspectionsByWorkshop(workshopId: string): Promise<WorkplaceInspection[]> { return getFiltered<WorkplaceInspection>(TABLE_INSPECTIONS, 'workshop_id', workshopId); }
+export async function getEmergencyInfoByWorkshop(workshopId: string): Promise<EmergencyInfo[]> { return getFiltered<EmergencyInfo>(TABLE_EMERGENCY, 'workshop_id', workshopId); }

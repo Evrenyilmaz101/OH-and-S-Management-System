@@ -1,5 +1,5 @@
 // Re-export everything from modules
-export { getEmployees, getEmployee, addEmployee, updateEmployee, deleteEmployee, createEmployeeWithOnboarding } from './employees';
+export { getEmployees, getEmployee, getEmployeesByWorkshop, addEmployee, updateEmployee, deleteEmployee, createEmployeeWithOnboarding } from './employees';
 export { getTasks, getTask, addTask, updateTask, deleteTask } from './tasks';
 export { getVOCRecords, getVOCRecord, getVOCByEmployee, getVOCByTask, addVOCRecord, updateVOCRecord, deleteVOCRecord } from './voc';
 export { getCertifications, getCertification, getCertsByEmployee, addCertification, updateCertification, deleteCertification } from './certifications';
@@ -20,6 +20,8 @@ export {
   getFirstAidEntries, getFirstAidEntry, addFirstAidEntry, updateFirstAidEntry, deleteFirstAidEntry, getFirstAidByPerson,
   getInspections, getInspection, addInspection, updateInspection, deleteInspection,
   getEmergencyInfo, getEmergencyItem, addEmergencyInfo, updateEmergencyInfo, deleteEmergencyInfo,
+  getPlantEquipmentByWorkshop, getHazardousSubstancesByWorkshop, getPPERecordsByWorkshop,
+  getFirstAidByWorkshop, getInspectionsByWorkshop, getEmergencyInfoByWorkshop,
 } from './registers';
 
 // Document templates
@@ -40,6 +42,15 @@ export { getLeaveRequests, getLeaveRequestByToken, addLeaveRequest, updateLeaveR
 // Compliance engine
 export { getEmployeeCompliance, getAllEmployeeCompliance, computeCompliance } from './compliance-engine';
 export type { ComplianceStatus } from './compliance-engine';
+
+// Workshops
+export { getWorkshops, getWorkshop, addWorkshop, updateWorkshop, deleteWorkshop } from './workshops';
+
+// Managers
+export { getManagers, getManager, getManagersByWorkshop, addManager, updateManager, deleteManager } from './managers';
+
+// User profiles
+export { getUserProfiles, getUserProfile, getUserProfileByAuthId, addUserProfile, updateUserProfile } from './user-profiles';
 
 // Data management
 export { deleteAllData, deleteAllEmployees } from './core';

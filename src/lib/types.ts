@@ -23,6 +23,7 @@ export interface Employee {
   notes: string;
   photo_url?: string;
   manager_id?: string;
+  workshop_id?: string;
 }
 
 export interface Task {
@@ -272,6 +273,7 @@ export interface PlantEquipment {
   maintenance_frequency_days: number;
   associated_sop_ids: string[];
   notes: string;
+  workshop_id?: string;
 }
 
 // === HAZARDOUS SUBSTANCES ===
@@ -290,6 +292,7 @@ export interface HazardousSubstance {
   control_measures: string;
   first_aid_measures: string;
   notes: string;
+  workshop_id?: string;
 }
 
 // === TOOLBOX TALKS ===
@@ -319,6 +322,7 @@ export interface PPERecord {
   expiry_date: string;
   condition: PPECondition;
   notes: string;
+  workshop_id?: string;
 }
 
 // === FIRST AID ===
@@ -335,6 +339,7 @@ export interface FirstAidEntry {
   follow_up_required: boolean;
   follow_up_notes: string;
   incident_report_id: string;
+  workshop_id?: string;
 }
 
 // === INSPECTIONS ===
@@ -360,6 +365,7 @@ export interface WorkplaceInspection {
   findings: InspectionFinding[];
   overall_rating: InspectionRating;
   notes: string;
+  workshop_id?: string;
 }
 
 // === EMERGENCY ===
@@ -374,6 +380,7 @@ export interface EmergencyInfo {
   last_reviewed: string;
   review_due: string;
   notes: string;
+  workshop_id?: string;
 }
 
 // === CORRECTIVE ACTIONS ===
@@ -490,4 +497,37 @@ export interface LeaveRequest {
   approved_date?: string;
   approval_token?: string;
   created_at?: string;
+}
+
+// === WORKSHOPS ===
+export interface Workshop {
+  id: string;
+  name: string;
+  code: string;
+  description: string;
+  active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// === MANAGERS ===
+export interface Manager {
+  id: string;
+  name: string;
+  email: string;
+  workshop_id?: string;
+  active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+// === USER PROFILES ===
+export interface UserProfile {
+  id: string;
+  auth_user_id: string;
+  workshop_id?: string;
+  is_admin: boolean;
+  display_name: string;
+  created_at?: string;
+  updated_at?: string;
 }

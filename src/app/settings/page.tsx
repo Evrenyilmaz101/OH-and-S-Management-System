@@ -18,6 +18,8 @@ import {
   FileText,
   Paperclip,
   Calendar,
+  Factory,
+  UserCog,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -43,7 +45,11 @@ import { RoleDialog } from "@/components/role-dialog";
 import { TaskDialog } from "@/components/task-dialog";
 import { TemplateDialog } from "@/components/template-dialog";
 import { PolicyDialog } from "@/components/policy-dialog";
+import { WorkshopDialog } from "@/components/workshop-dialog";
+import { ManagerDialog } from "@/components/manager-dialog";
 import { getRoles, updateRole } from "@/lib/store/roles";
+import { getWorkshops, addWorkshop, updateWorkshop, deleteWorkshop } from "@/lib/store/workshops";
+import { getManagers, addManager, updateManager, deleteManager } from "@/lib/store/managers";
 import { getTasks, addTask, updateTask, deleteTask } from "@/lib/store/tasks";
 import { deleteAllData, deleteAllEmployees } from "@/lib/store";
 import {
@@ -57,7 +63,7 @@ import { getCompanyPolicies, addCompanyPolicy, updateCompanyPolicy, deleteCompan
 import { uploadDocumentFile, getDocumentFileUrl, deleteDocumentFile } from "@/lib/store/document-storage";
 import { toast } from "sonner";
 import { cn, generateId } from "@/lib/utils";
-import type { RoleDefinition, Task, VOCAssessmentTemplate, DocumentTemplate, CompanyPolicy } from "@/lib/types";
+import type { RoleDefinition, Task, VOCAssessmentTemplate, DocumentTemplate, CompanyPolicy, Workshop, Manager } from "@/lib/types";
 
 // --- Collapsible Section wrapper ---
 function CollapsibleSection({
@@ -126,6 +132,14 @@ export default function DataHubPage() {
     useState<VOCAssessmentTemplate | null>(null);
   const [templateDialogOpen, setTemplateDialogOpen] = useState(false);
 
+  // Workshop & Manager state
+  const [workshops, setWorkshops] = useState<Workshop[]>([]);
+  const [managers, setManagers] = useState<Manager[]>([]);
+  const [editingWorkshop, setEditingWorkshop] = useState<Workshop | null>(null);
+  const [workshopDialogOpen, setWorkshopDialogOpen] = useState(false);
+  const [editingManager, setEditingManager] = useState<Manager | null>(null);
+  const [managerDialogOpen, setManagerDialogOpen] = useState(false);
+
   // Document templates & policies state
   const [docTemplates, setDocTemplates] = useState<DocumentTemplate[]>([]);
   const [policies, setPolicies] = useState<CompanyPolicy[]>([]);
@@ -135,18 +149,22 @@ export default function DataHubPage() {
   const [policyDialogOpen, setPolicyDialogOpen] = useState(false);
 
   const loadData = async () => {
-    const [loadedRoles, loadedTasks, loadedTemplates, loadedDocTemplates, loadedPolicies] = await Promise.all([
+    const [loadedRoles, loadedTasks, loadedTemplates, loadedDocTemplates, loadedPolicies, loadedWorkshops, loadedManagers] = await Promise.all([
       getRoles(),
       getTasks(),
       getVOCTemplates(),
       getDocumentTemplates(),
       getCompanyPolicies(),
+      getWorkshops(),
+      getManagers(),
     ]);
     setRoles(loadedRoles);
     setTasks(loadedTasks);
     setTemplates(loadedTemplates);
     setDocTemplates(loadedDocTemplates);
     setPolicies(loadedPolicies);
+    setWorkshops(loadedWorkshops);
+    setManagers(loadedManagers);
   };
 
   useEffect(() => {
@@ -168,6 +186,48 @@ export default function DataHubPage() {
     }
     await loadData();
     setEditingRole(null);
+  };
+
+  // Workshop handlers
+  const handleAddWorkshop = () => { setEditingWorkshop(null); setWorkshopDialogOpen(true); };
+  const handleEditWorkshop = (w: Workshop) => { setEditingWorkshop(w); setWorkshopDialogOpen(true); };
+  const handleSaveWorkshop = async (w: Workshop) => {
+    if (editingWorkshop) {
+      await updateWorkshop(w);
+      toast.success("Workshop updated");
+    } else {
+      await addWorkshop(w);
+      toast.success("Workshop added");
+    }
+    await loadData();
+    setEditingWorkshop(null);
+  };
+  const handleDeleteWorkshop = async (w: Workshop) => {
+    if (!confirm(`Delete "${w.name}"? This cannot be undone.`)) return;
+    await deleteWorkshop(w.id);
+    toast.success("Workshop deleted");
+    await loadData();
+  };
+
+  // Manager handlers
+  const handleAddManager = () => { setEditingManager(null); setManagerDialogOpen(true); };
+  const handleEditManager = (m: Manager) => { setEditingManager(m); setManagerDialogOpen(true); };
+  const handleSaveManager = async (m: Manager) => {
+    if (editingManager) {
+      await updateManager(m);
+      toast.success("Manager updated");
+    } else {
+      await addManager(m);
+      toast.success("Manager added");
+    }
+    await loadData();
+    setEditingManager(null);
+  };
+  const handleDeleteManager = async (m: Manager) => {
+    if (!confirm(`Delete "${m.name}"? This cannot be undone.`)) return;
+    await deleteManager(m.id);
+    toast.success("Manager deleted");
+    await loadData();
   };
 
   // Task handlers
@@ -361,6 +421,107 @@ export default function DataHubPage() {
               </span>
             </div>
           ))}
+        </div>
+      </CollapsibleSection>
+
+      {/* Workshops */}
+      <CollapsibleSection
+        icon={<Factory className="w-3.5 h-3.5" />}
+        iconColor="text-cyan-400"
+        title="Workshops"
+        subtitle="Business units / shop floors"
+        headerRight={
+          <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={handleAddWorkshop}>
+            <Plus className="w-3 h-3" /> Add Workshop
+          </Button>
+        }
+      >
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-[10px] uppercase tracking-wider">Code</TableHead>
+                <TableHead className="text-[10px] uppercase tracking-wider">Name</TableHead>
+                <TableHead className="text-[10px] uppercase tracking-wider">Description</TableHead>
+                <TableHead className="text-[10px] uppercase tracking-wider">Status</TableHead>
+                <TableHead className="text-[10px] uppercase tracking-wider text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {workshops.length === 0 ? (
+                <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No workshops configured</TableCell></TableRow>
+              ) : workshops.map((w) => (
+                <TableRow key={w.id}>
+                  <TableCell className="font-mono text-xs font-bold">{w.code}</TableCell>
+                  <TableCell className="text-sm">{w.name}</TableCell>
+                  <TableCell className="text-xs text-muted-foreground">{w.description || "\u2014"}</TableCell>
+                  <TableCell><StatusBadge status={w.active ? "Active" : "Inactive"} /></TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-1">
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => handleEditWorkshop(w)}>
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-400 hover:text-red-300" onClick={() => handleDeleteWorkshop(w)}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      </CollapsibleSection>
+
+      {/* Managers */}
+      <CollapsibleSection
+        icon={<UserCog className="w-3.5 h-3.5" />}
+        iconColor="text-violet-400"
+        title="Managers"
+        subtitle="Supervisors for leave approvals and employee oversight"
+        headerRight={
+          <Button size="sm" variant="outline" className="h-7 text-xs gap-1" onClick={handleAddManager}>
+            <Plus className="w-3 h-3" /> Add Manager
+          </Button>
+        }
+      >
+        <div className="overflow-x-auto">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="text-[10px] uppercase tracking-wider">Name</TableHead>
+                <TableHead className="text-[10px] uppercase tracking-wider">Email</TableHead>
+                <TableHead className="text-[10px] uppercase tracking-wider">Workshop</TableHead>
+                <TableHead className="text-[10px] uppercase tracking-wider">Status</TableHead>
+                <TableHead className="text-[10px] uppercase tracking-wider text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {managers.length === 0 ? (
+                <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">No managers configured</TableCell></TableRow>
+              ) : managers.map((m) => {
+                const ws = workshops.find((w) => w.id === m.workshop_id);
+                return (
+                  <TableRow key={m.id}>
+                    <TableCell className="text-sm font-medium">{m.name}</TableCell>
+                    <TableCell className="text-xs text-muted-foreground">{m.email}</TableCell>
+                    <TableCell className="text-xs">{ws ? `${ws.code} — ${ws.name}` : "\u2014"}</TableCell>
+                    <TableCell><StatusBadge status={m.active ? "Active" : "Inactive"} /></TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0" onClick={() => handleEditManager(m)}>
+                          <Pencil className="w-3.5 h-3.5" />
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-7 w-7 p-0 text-red-400 hover:text-red-300" onClick={() => handleDeleteManager(m)}>
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
         </div>
       </CollapsibleSection>
 
@@ -858,6 +1019,21 @@ export default function DataHubPage() {
         onOpenChange={setPolicyDialogOpen}
         policy={editingPolicy}
         onSave={handleSavePolicy}
+      />
+
+      <WorkshopDialog
+        open={workshopDialogOpen}
+        onOpenChange={setWorkshopDialogOpen}
+        workshop={editingWorkshop}
+        onSave={handleSaveWorkshop}
+      />
+
+      <ManagerDialog
+        open={managerDialogOpen}
+        onOpenChange={setManagerDialogOpen}
+        manager={editingManager}
+        workshops={workshops}
+        onSave={handleSaveManager}
       />
     </div>
   );

@@ -10,10 +10,11 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import type { Employee, EmploymentType, EmployeeStatus, RoleDefinition } from "@/lib/types";
+import type { Employee, EmploymentType, EmployeeStatus, RoleDefinition, Manager, Workshop } from "@/lib/types";
 import { generateId } from "@/lib/utils";
 import { getRoles } from "@/lib/store/roles";
-import { getEmployees } from "@/lib/store/employees";
+import { getManagers } from "@/lib/store/managers";
+import { getWorkshops } from "@/lib/store/workshops";
 
 interface EmployeeDialogProps {
   open: boolean;
@@ -41,13 +42,15 @@ const emptyEmployee: Omit<Employee, "id"> = {
 export function EmployeeDialog({ open, onOpenChange, employee, onSave }: EmployeeDialogProps) {
   const [form, setForm] = useState(emptyEmployee);
   const [roles, setRoles] = useState<RoleDefinition[]>([]);
-  const [allEmployees, setAllEmployees] = useState<Employee[]>([]);
+  const [managers, setManagersList] = useState<Manager[]>([]);
+  const [workshops, setWorkshopsList] = useState<Workshop[]>([]);
 
   useEffect(() => {
     async function loadData() {
-      const [allRoles, emps] = await Promise.all([getRoles(), getEmployees()]);
+      const [allRoles, mgrs, wkshps] = await Promise.all([getRoles(), getManagers(), getWorkshops()]);
       setRoles(allRoles.filter(r => r.active));
-      setAllEmployees(emps);
+      setManagersList(mgrs.filter(m => m.active));
+      setWorkshopsList(wkshps.filter(w => w.active));
     }
     loadData();
   }, [open]);
@@ -143,23 +146,39 @@ export function EmployeeDialog({ open, onOpenChange, employee, onSave }: Employe
               ))}
             </select>
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="manager_id">Manager / Supervisor</Label>
-            <select
-              id="manager_id"
-              className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-              value={form.manager_id || ""}
-              onChange={(e) => setForm({ ...form, manager_id: e.target.value || undefined })}
-            >
-              <option value="">No manager assigned</option>
-              {allEmployees
-                .filter((emp) => emp.id !== employee?.id && emp.status === "Active")
-                .map((emp) => (
-                  <option key={emp.id} value={emp.id}>
-                    {emp.first_name} {emp.last_name} — {emp.role}
+          <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="workshop_id">Workshop</Label>
+              <select
+                id="workshop_id"
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                value={form.workshop_id || ""}
+                onChange={(e) => setForm({ ...form, workshop_id: e.target.value || undefined })}
+              >
+                <option value="">No workshop assigned</option>
+                {workshops.map((w) => (
+                  <option key={w.id} value={w.id}>
+                    {w.code} — {w.name}
                   </option>
                 ))}
-            </select>
+              </select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="manager_id">Manager / Supervisor</Label>
+              <select
+                id="manager_id"
+                className="flex h-9 w-full rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                value={form.manager_id || ""}
+                onChange={(e) => setForm({ ...form, manager_id: e.target.value || undefined })}
+              >
+                <option value="">No manager assigned</option>
+                {managers.map((mgr) => (
+                  <option key={mgr.id} value={mgr.id}>
+                    {mgr.name} — {mgr.email}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">

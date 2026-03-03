@@ -42,14 +42,12 @@ function ApprovalContent() {
 
     // Fetch manager name
     const { data: manager } = await supabase
-      .from("employees")
-      .select("first_name, last_name")
+      .from("managers")
+      .select("name")
       .eq("id", lr.manager_id)
       .single();
 
-    const managerName = manager
-      ? `${manager.first_name} ${manager.last_name}`
-      : "Manager";
+    const managerName = manager?.name || "Manager";
 
     const newStatus = approved ? "Approved" : "Rejected";
 

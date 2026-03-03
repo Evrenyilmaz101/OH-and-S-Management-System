@@ -23,8 +23,8 @@ export async function POST(request: NextRequest) {
     }
 
     const { data: manager } = await supabase
-      .from('employees')
-      .select('first_name, last_name, email')
+      .from('managers')
+      .select('name, email')
       .eq('id', lr.manager_id)
       .single();
 

@@ -135,12 +135,15 @@ const ALL_TABLES_ORDERED = [
   'plant_equipment',
   'emergency_info',
   'employees',
+  'managers',
+  'user_profiles',
   'induction_templates',
   'voc_assessment_templates',
   'document_templates',
   'company_policies',
   'tasks',
   'role_definitions',
+  'workshops',
 ];
 
 export async function deleteAllData(): Promise<{ success: boolean; errors: string[] }> {

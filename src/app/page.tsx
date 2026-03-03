@@ -9,12 +9,13 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
-import { getEmployees } from "@/lib/store/employees";
+import { getEmployees, getEmployeesByWorkshop } from "@/lib/store/employees";
 import { getCertifications } from "@/lib/store/certifications";
 import { getRoles } from "@/lib/store/roles";
 import { getAllEmployeeCompliance } from "@/lib/store/compliance-engine";
 import type { ComplianceStatus } from "@/lib/store/compliance-engine";
 import { getExpiryStatus, formatDate } from "@/lib/utils";
+import { useAuth } from "@/components/store-provider";
 import type { Employee, Certification } from "@/lib/types";
 
 interface DashboardStats {
@@ -26,26 +27,37 @@ interface DashboardStats {
 }
 
 export default function DashboardPage() {
+  const { selectedWorkshopId } = useAuth();
   const [stats, setStats] = useState<DashboardStats | null>(null);
 
   useEffect(() => {
     async function loadDashboard() {
-      const [employees, certifications, allCompliance] = await Promise.all([
-        getEmployees(),
+      const [allEmployees, certifications, allCompliance] = await Promise.all([
+        selectedWorkshopId ? getEmployeesByWorkshop(selectedWorkshopId) : getEmployees(),
         getCertifications(),
         getAllEmployeeCompliance(),
       ]);
 
+      // If workshop is selected, scope employee IDs for filtering
+      const employeeIds = new Set(allEmployees.map((e) => e.id));
+      const employees = allEmployees;
+
       const activeEmployees = employees.filter((e) => e.status === "Active");
 
+      // Scope compliance to current employees
+      const scopedCompliance = selectedWorkshopId
+        ? allCompliance.filter((c) => employeeIds.has(c.employeeId))
+        : allCompliance;
+
       // Workforce compliance
-      const workforceCompliance = allCompliance.length > 0
-        ? Math.round(allCompliance.reduce((sum, c) => sum + c.overallCompliance, 0) / allCompliance.length)
+      const workforceCompliance = scopedCompliance.length > 0
+        ? Math.round(scopedCompliance.reduce((sum, c) => sum + c.overallCompliance, 0) / scopedCompliance.length)
         : 0;
 
-      // Cert expiry alerts
+      // Cert expiry alerts (scoped to current employees)
       const certExpiryAlerts = certifications
         .filter((c) => {
+          if (selectedWorkshopId && !employeeIds.has(c.employee_id)) return false;
           const s = getExpiryStatus(c.expiry_date);
           return s === "expiring" || s === "expired";
         })
@@ -53,7 +65,7 @@ export default function DashboardPage() {
         .filter((a) => a.employee);
 
       // Compliance alerts — employees needing attention
-      const complianceAlerts = allCompliance
+      const complianceAlerts = scopedCompliance
         .filter((c) => c.needsAttention)
         .map((c) => ({
           employee: employees.find((e) => e.id === c.employeeId)!,
@@ -72,7 +84,7 @@ export default function DashboardPage() {
       });
     }
     loadDashboard();
-  }, []);
+  }, [selectedWorkshopId]);
 
   if (!stats) return null;
 

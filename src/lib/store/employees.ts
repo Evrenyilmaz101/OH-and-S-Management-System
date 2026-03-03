@@ -1,4 +1,4 @@
-import { getAll, getById, insertRow, updateRow, deleteRow } from './core';
+import { getAll, getById, getFiltered, insertRow, updateRow, deleteRow } from './core';
 import { addOnboardingRecord, getInductionTemplates, addInductionRecord } from './onboarding';
 import type { Employee } from '@/lib/types';
 
@@ -6,6 +6,7 @@ const TABLE = 'employees';
 
 export async function getEmployees(): Promise<Employee[]> { return getAll<Employee>(TABLE, 'last_name'); }
 export async function getEmployee(id: string): Promise<Employee | undefined> { return getById<Employee>(TABLE, id); }
+export async function getEmployeesByWorkshop(workshopId: string): Promise<Employee[]> { return getFiltered<Employee>(TABLE, 'workshop_id', workshopId); }
 export async function addEmployee(employee: Partial<Employee>): Promise<Employee | null> { return insertRow<Employee>(TABLE, employee as Employee); }
 export async function updateEmployee(employee: Employee): Promise<Employee | null> { return updateRow<Employee>(TABLE, employee.id, employee); }
 export async function deleteEmployee(id: string): Promise<boolean> { return deleteRow(TABLE, id); }

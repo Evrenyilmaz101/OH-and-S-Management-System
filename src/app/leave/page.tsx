@@ -14,10 +14,11 @@ import {
 } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/page-header";
 import { StatusBadge } from "@/components/status-badge";
-import { getEmployees } from "@/lib/store/employees";
+import { getEmployees, getEmployeesByWorkshop } from "@/lib/store/employees";
 import { getLeaveRequests, addLeaveRequest } from "@/lib/store/leave-requests";
 import { formatDate } from "@/lib/utils";
 import { toast } from "sonner";
+import { useAuth } from "@/components/store-provider";
 import type { Employee, LeaveRequest, LeaveType } from "@/lib/types";
 
 const LEAVE_TYPES: LeaveType[] = [
@@ -38,6 +39,7 @@ const emptyForm = {
 };
 
 export default function LeavePage() {
+  const { selectedWorkshopId } = useAuth();
   const [requests, setRequests] = useState<LeaveRequest[]>([]);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -45,14 +47,21 @@ export default function LeavePage() {
   const [submitting, setSubmitting] = useState(false);
 
   async function loadData() {
-    const [reqs, emps] = await Promise.all([getLeaveRequests(), getEmployees()]);
-    setRequests(reqs.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || "")));
+    const [reqs, emps] = await Promise.all([
+      getLeaveRequests(),
+      selectedWorkshopId ? getEmployeesByWorkshop(selectedWorkshopId) : getEmployees(),
+    ]);
+    const empIds = new Set(emps.map((e) => e.id));
+    const filteredReqs = selectedWorkshopId
+      ? reqs.filter((r) => empIds.has(r.employee_id))
+      : reqs;
+    setRequests(filteredReqs.sort((a, b) => (b.created_at || "").localeCompare(a.created_at || "")));
     setEmployees(emps);
   }
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [selectedWorkshopId]);
 
   const selectedEmployee = employees.find((e) => e.id === form.employee_id);
 

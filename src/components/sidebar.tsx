@@ -17,6 +17,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/components/store-provider";
 
 interface NavItem {
   href: string;
@@ -131,6 +132,9 @@ function NavGroupSection({
 export function Sidebar() {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const { isAdmin, workshops, selectedWorkshopId, setSelectedWorkshopId } = useAuth();
+
+  const currentWorkshop = workshops.find((w) => w.id === selectedWorkshopId);
 
   const navContent = (
     <>
@@ -154,6 +158,28 @@ export function Sidebar() {
         </p>
       </div>
 
+      {/* Workshop Selector */}
+      <div className="px-4 py-2.5 border-b border-sidebar-border">
+        {isAdmin ? (
+          <select
+            className="w-full h-7 rounded bg-sidebar-accent/30 border border-sidebar-border text-[11px] text-sidebar-foreground px-2 focus:outline-none focus:ring-1 focus:ring-amber-500/50 cursor-pointer"
+            value={selectedWorkshopId || ""}
+            onChange={(e) => setSelectedWorkshopId(e.target.value || null)}
+          >
+            <option value="">All Workshops</option>
+            {workshops.map((w) => (
+              <option key={w.id} value={w.id}>
+                {w.code} — {w.name}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <p className="text-[10px] text-sidebar-foreground/50 uppercase tracking-wider">
+            {currentWorkshop ? `${currentWorkshop.code} — ${currentWorkshop.name}` : "No Workshop"}
+          </p>
+        )}
+      </div>
+
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto py-3 space-y-0.5">
         {navGroups.map((group) => (
@@ -169,7 +195,7 @@ export function Sidebar() {
       {/* Footer */}
       <div className="px-4 py-3 border-t border-sidebar-border">
         <p className="text-[9px] tracking-[0.1em] text-sidebar-foreground/30 uppercase">
-          Vessel Fabrication Shop — VIC
+          {currentWorkshop ? currentWorkshop.name : "Thornton Engineering"} — VIC
         </p>
         <p className="text-[9px] text-sidebar-foreground/20 mt-0.5">
           Ctrl+K to search
